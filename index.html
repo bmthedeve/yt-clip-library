@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouTube Segment Library</title>
+    <link rel="stylesheet" href="styles.css?v=20260503-button-hover" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">YS</div>
+          <div>
+            <h1>Segment Library</h1>
+            <p>YouTube clips by timestamp</p>
+          </div>
+          <button class="icon-button hamburger-button inside-toggle" id="collapseSidebarBtn" type="button" title="Hide sidebar" aria-label="Hide sidebar">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Groups</h2>
+            <button class="icon-button" id="newGroupBtn" type="button" title="New group">+</button>
+          </div>
+          <div class="group-list" id="groupList"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Tags</h2>
+          </div>
+          <div class="tag-cloud" id="tagCloud"></div>
+        </section>
+
+        <section class="panel backup-panel">
+          <div class="panel-head">
+            <h2>Backup</h2>
+          </div>
+          <div class="backup-actions">
+            <button class="secondary-action" id="exportBtn" type="button">Export</button>
+            <label class="secondary-action file-label">
+              Import
+              <input id="importInput" type="file" accept="application/json" />
+            </label>
+          </div>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <button class="icon-button hamburger-button sidebar-restore hidden" id="expandSidebarBtn" type="button" title="Show sidebar" aria-label="Show sidebar">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div class="search-wrap">
+            <label for="searchInput">Search</label>
+            <input id="searchInput" type="search" placeholder="Search title, tags, notes, URL..." />
+          </div>
+          <div class="toolbar">
+            <select id="groupFilter" aria-label="Filter by group"></select>
+            <select id="tagFilter" aria-label="Filter by tag"></select>
+            <div class="segmented" role="group" aria-label="View">
+              <button class="active" id="listViewBtn" type="button">List</button>
+              <button id="boardViewBtn" type="button">Board</button>
+            </div>
+            <button class="primary-action compact" id="newEntryBtn" type="button">+ New segment</button>
+          </div>
+        </header>
+
+        <section class="stats-row" id="statsRow"></section>
+
+        <section class="content-view">
+          <div class="list-view" id="listView"></div>
+          <div class="board-view hidden" id="boardView"></div>
+          <div class="empty-state hidden" id="emptyState">
+            <h2>No matching segments</h2>
+            <p>Add a segment or loosen the filters to see saved clips here.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="entryDialog" class="dialog">
+      <form id="entryForm" method="dialog">
+        <div class="dialog-head">
+          <h2 id="entryDialogTitle">New segment</h2>
+          <button class="icon-button" type="button" data-close-dialog="entryDialog" title="Close">x</button>
+        </div>
+        <input type="hidden" id="entryId" />
+        <div class="form-grid">
+          <label>
+            Title
+            <input id="entryTitle" type="text" required placeholder="Favorite explanation" />
+          </label>
+          <label>
+            YouTube URL
+            <input id="entryUrl" type="url" required placeholder="https://www.youtube.com/watch?v=..." />
+          </label>
+          <label>
+            Start
+            <input id="entryStart" type="text" required placeholder="10 or 1:20" />
+          </label>
+          <label>
+            End
+            <input id="entryEnd" type="text" required placeholder="40 or 2:05" />
+          </label>
+          <label>
+            Group
+            <select id="entryGroup"></select>
+          </label>
+          <label>
+            Tags
+            <input id="entryTags" type="text" placeholder="research, editing, funny" />
+          </label>
+          <label class="wide">
+            Notes
+            <textarea id="entryNotes" rows="4" placeholder="Why this segment matters..."></textarea>
+          </label>
+        </div>
+        <p class="form-error" id="entryError"></p>
+        <div class="dialog-actions">
+          <button class="secondary-action" type="button" data-close-dialog="entryDialog">Cancel</button>
+          <button class="primary-action compact" type="submit">Save segment</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="groupDialog" class="dialog small-dialog">
+      <form id="groupForm" method="dialog">
+        <div class="dialog-head">
+          <h2 id="groupDialogTitle">New group</h2>
+          <button class="icon-button" type="button" data-close-dialog="groupDialog" title="Close">x</button>
+        </div>
+        <input type="hidden" id="groupId" />
+        <div class="form-grid single">
+          <label>
+            Group name
+            <input id="groupName" type="text" required placeholder="Machine learning" />
+          </label>
+          <label>
+            Tags
+            <input id="groupTags" type="text" placeholder="study, ai, course" />
+          </label>
+          <label>
+            Color
+            <input id="groupColor" type="color" value="#4f8f8a" />
+          </label>
+        </div>
+        <p class="form-error" id="groupError"></p>
+        <div class="dialog-actions split-actions">
+          <button class="danger-action hidden" id="deleteGroupBtn" type="button">Delete</button>
+          <div>
+            <button class="secondary-action" type="button" data-close-dialog="groupDialog">Cancel</button>
+            <button class="primary-action compact" type="submit">Save group</button>
+          </div>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="playerDialog" class="dialog player-dialog">
+      <div class="dialog-head">
+        <div>
+          <h2 id="playerTitle">Segment</h2>
+          <p id="playerMeta"></p>
+        </div>
+        <button class="icon-button" type="button" data-close-dialog="playerDialog" title="Close">x</button>
+      </div>
+      <div class="player-frame" id="playerFrame"></div>
+      <div class="player-support">
+        <p>If YouTube blocks embedded playback, open the video on YouTube at the saved start time.</p>
+        <a class="secondary-action link-action" id="openYouTubeLink" href="#" target="_blank" rel="noopener noreferrer">Open on YouTube</a>
+      </div>
+    </dialog>
+
+    <script src="app.js?v=20260503-button-hover"></script>
+  </body>
+</html>
