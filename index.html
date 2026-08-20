@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>YouTube Segment Library</title>
-    <link rel="stylesheet" href="styles.css?v=20260503-button-hover" />
+    <link rel="stylesheet" href="styles.css?v=20260820-groups-multi" />
   </head>
   <body>
     <div class="app-shell">
@@ -59,22 +59,28 @@
           </button>
           <div class="search-wrap">
             <label for="searchInput">Search</label>
-            <input id="searchInput" type="search" placeholder="Search title, tags, notes, URL..." />
+            <input id="searchInput" type="search" placeholder="Search videos, segments, tags, notes..." />
           </div>
           <div class="toolbar">
-            <select id="groupFilter" aria-label="Filter by group"></select>
             <select id="tagFilter" aria-label="Filter by tag"></select>
             <div class="segmented" role="group" aria-label="View">
               <button class="active" id="listViewBtn" type="button">List</button>
               <button id="boardViewBtn" type="button">Board</button>
             </div>
-            <button class="primary-action compact" id="newEntryBtn" type="button">+ New segment</button>
+            <button class="primary-action compact" id="newEntryBtn" type="button">+ New video</button>
           </div>
         </header>
+
+        <nav class="group-breadcrumb hidden" id="groupBreadcrumb" aria-label="Breadcrumb">
+          <button type="button" class="breadcrumb-button" id="backToGroupsBtn">Groups</button>
+          <span>/</span>
+          <strong id="activeGroupName"></strong>
+        </nav>
 
         <section class="stats-row" id="statsRow"></section>
 
         <section class="content-view">
+          <div class="folder-view" id="folderView"></div>
           <div class="list-view" id="listView"></div>
           <div class="board-view hidden" id="boardView"></div>
           <div class="empty-state hidden" id="emptyState">
@@ -88,10 +94,21 @@
     <dialog id="entryDialog" class="dialog">
       <form id="entryForm" method="dialog">
         <div class="dialog-head">
-          <h2 id="entryDialogTitle">New segment</h2>
+          <h2 id="entryDialogTitle">New video</h2>
           <button class="icon-button" type="button" data-close-dialog="entryDialog" title="Close">x</button>
         </div>
         <input type="hidden" id="entryId" />
+        <fieldset class="clip-type-fieldset" id="clipTypeFieldset">
+          <legend>How many moments do you want to save?</legend>
+          <label class="choice-card">
+            <input type="radio" name="clipType" value="single" checked />
+            <span><strong>Single segment</strong><small>Save one moment from this video</small></span>
+          </label>
+          <label class="choice-card">
+            <input type="radio" name="clipType" value="multiple" />
+            <span><strong>Multiple segments</strong><small>Save several moments under one video</small></span>
+          </label>
+        </fieldset>
         <div class="form-grid">
           <label>
             Title
@@ -100,14 +117,6 @@
           <label>
             YouTube URL
             <input id="entryUrl" type="url" required placeholder="https://www.youtube.com/watch?v=..." />
-          </label>
-          <label>
-            Start
-            <input id="entryStart" type="text" required placeholder="10 or 1:20" />
-          </label>
-          <label>
-            End
-            <input id="entryEnd" type="text" required placeholder="40 or 2:05" />
           </label>
           <label>
             Group
@@ -122,10 +131,17 @@
             <textarea id="entryNotes" rows="4" placeholder="Why this segment matters..."></textarea>
           </label>
         </div>
+        <section class="segments-editor">
+          <div class="segments-editor-head">
+            <div><strong>Segments</strong><p>Name each moment so it is easy to recognize later.</p></div>
+            <button class="secondary-action hidden" id="addSegmentBtn" type="button">+ Add segment</button>
+          </div>
+          <div id="segmentRows"></div>
+        </section>
         <p class="form-error" id="entryError"></p>
         <div class="dialog-actions">
           <button class="secondary-action" type="button" data-close-dialog="entryDialog">Cancel</button>
-          <button class="primary-action compact" type="submit">Save segment</button>
+          <button class="primary-action compact" type="submit">Save video</button>
         </div>
       </form>
     </dialog>
@@ -176,6 +192,6 @@
         <a class="secondary-action link-action" id="openYouTubeLink" href="#" target="_blank" rel="noopener noreferrer">Open on YouTube</a>
       </div>
     </dialog>
-    <script src="app.js?v=20260503-button-hover"></script>
+    <script src="app.js?v=20260820-groups-multi"></script>
   </body>
 </html>

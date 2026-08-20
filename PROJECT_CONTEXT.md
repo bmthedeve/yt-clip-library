@@ -54,6 +54,12 @@ No YouTube videos are downloaded or stored locally.
 - Added Bootstrap-inspired hover/focus states for action buttons: Edit turns blue, Delete turns red, both with subtle lift and shadow.
 
 ## Features Implemented
+- Folder-first home screen: groups appear as folder cards and video content is only shown after opening a group.
+- Group breadcrumb navigation with list and board views scoped to the open folder.
+- Video-level records can contain either one segment or multiple labeled segments.
+- New video form switches between a single segment and repeatable multi-segment inputs.
+- Every saved segment has its own adjacent play button and bounded timestamp playback.
+- Existing single-segment localStorage entries are migrated to the video-with-segments model automatically.
 - Add, edit, and delete segment entries.
 - Add, edit, and delete groups.
 - Store tags on both groups and individual entries.

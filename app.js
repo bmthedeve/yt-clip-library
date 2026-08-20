@@ -6,734 +6,221 @@ const demoState = {
     { id: "g-ideas", name: "Ideas", tags: ["creative"], color: "#b8872f" },
     { id: "g-work", name: "Work", tags: ["projects"], color: "#3d6f9f" }
   ],
-  entries: [
-    {
-      id: "e-demo-1",
-      title: "Example segment",
-      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      videoId: "dQw4w9WgXcQ",
-      start: 10,
-      end: 40,
-      groupId: "g-learning",
-      tags: ["demo", "clip"],
-      notes: "A sample entry showing how timestamp playback works.",
-      createdAt: Date.now() - 200000
-    }
-  ],
-  activeView: "list",
-  filters: {
-    query: "",
-    groupId: "all",
-    tag: "all"
-  },
-  sidebarCollapsed: false
+  entries: [{
+    id: "e-demo-1", title: "Example video", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    videoId: "dQw4w9WgXcQ", groupId: "g-learning", tags: ["demo", "clip"],
+    notes: "A sample video showing how timestamp playback works.", createdAt: Date.now() - 200000,
+    segments: [{ id: "s-demo-1", label: "Favorite moment", start: 10, end: 40 }]
+  }],
+  activeView: "list", activeGroupId: null,
+  filters: { query: "", tag: "all" }, sidebarCollapsed: false
 };
 
 let state = loadState();
-let youtubeApiPromise = null;
-let segmentPlayer = null;
-let segmentGuard = null;
-let activeSegment = null;
-
+let youtubeApiPromise = null, segmentPlayer = null, segmentGuard = null, activeSegment = null;
 const $ = (selector) => document.querySelector(selector);
-
 const els = {
-  groupList: $("#groupList"),
-  tagCloud: $("#tagCloud"),
-  searchInput: $("#searchInput"),
-  groupFilter: $("#groupFilter"),
-  tagFilter: $("#tagFilter"),
-  listViewBtn: $("#listViewBtn"),
-  boardViewBtn: $("#boardViewBtn"),
-  collapseSidebarBtn: $("#collapseSidebarBtn"),
-  expandSidebarBtn: $("#expandSidebarBtn"),
-  statsRow: $("#statsRow"),
-  listView: $("#listView"),
-  boardView: $("#boardView"),
-  emptyState: $("#emptyState"),
-  entryDialog: $("#entryDialog"),
-  entryForm: $("#entryForm"),
-  entryDialogTitle: $("#entryDialogTitle"),
-  entryId: $("#entryId"),
-  entryTitle: $("#entryTitle"),
-  entryUrl: $("#entryUrl"),
-  entryStart: $("#entryStart"),
-  entryEnd: $("#entryEnd"),
-  entryGroup: $("#entryGroup"),
-  entryTags: $("#entryTags"),
-  entryNotes: $("#entryNotes"),
-  entryError: $("#entryError"),
-  groupDialog: $("#groupDialog"),
-  groupForm: $("#groupForm"),
-  groupDialogTitle: $("#groupDialogTitle"),
-  groupId: $("#groupId"),
-  groupName: $("#groupName"),
-  groupTags: $("#groupTags"),
-  groupColor: $("#groupColor"),
-  groupError: $("#groupError"),
-  deleteGroupBtn: $("#deleteGroupBtn"),
-  playerDialog: $("#playerDialog"),
-  playerTitle: $("#playerTitle"),
-  playerMeta: $("#playerMeta"),
-  playerFrame: $("#playerFrame"),
-  openYouTubeLink: $("#openYouTubeLink"),
-  exportBtn: $("#exportBtn"),
-  importInput: $("#importInput")
+  groupList: $("#groupList"), tagCloud: $("#tagCloud"), searchInput: $("#searchInput"), tagFilter: $("#tagFilter"),
+  listViewBtn: $("#listViewBtn"), boardViewBtn: $("#boardViewBtn"), collapseSidebarBtn: $("#collapseSidebarBtn"),
+  expandSidebarBtn: $("#expandSidebarBtn"), statsRow: $("#statsRow"), folderView: $("#folderView"),
+  listView: $("#listView"), boardView: $("#boardView"), emptyState: $("#emptyState"),
+  groupBreadcrumb: $("#groupBreadcrumb"), activeGroupName: $("#activeGroupName"), entryDialog: $("#entryDialog"),
+  entryForm: $("#entryForm"), entryDialogTitle: $("#entryDialogTitle"), entryId: $("#entryId"), entryTitle: $("#entryTitle"),
+  entryUrl: $("#entryUrl"), entryGroup: $("#entryGroup"), entryTags: $("#entryTags"), entryNotes: $("#entryNotes"),
+  entryError: $("#entryError"), clipTypeFieldset: $("#clipTypeFieldset"), segmentRows: $("#segmentRows"),
+  addSegmentBtn: $("#addSegmentBtn"), groupDialog: $("#groupDialog"), groupForm: $("#groupForm"),
+  groupDialogTitle: $("#groupDialogTitle"), groupId: $("#groupId"), groupName: $("#groupName"), groupTags: $("#groupTags"),
+  groupColor: $("#groupColor"), groupError: $("#groupError"), deleteGroupBtn: $("#deleteGroupBtn"),
+  playerDialog: $("#playerDialog"), playerTitle: $("#playerTitle"), playerMeta: $("#playerMeta"),
+  playerFrame: $("#playerFrame"), openYouTubeLink: $("#openYouTubeLink"), exportBtn: $("#exportBtn"), importInput: $("#importInput")
 };
 
+function cloneDefaultState() { return JSON.parse(JSON.stringify(demoState)); }
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return cloneDefaultState();
-  }
-
+  if (!raw) return cloneDefaultState();
   try {
     const parsed = JSON.parse(raw);
-    return {
-      ...cloneDefaultState(),
-      ...parsed,
-      filters: { ...demoState.filters, ...(parsed.filters || {}) },
-      sidebarCollapsed: Boolean(parsed.sidebarCollapsed)
-    };
-  } catch {
-    return cloneDefaultState();
-  }
+    const entries = (parsed.entries || []).map((entry) => entry.segments ? entry : ({
+      ...entry, segments: [{ id: createId("s"), label: entry.title || "Saved segment", start: entry.start, end: entry.end }]
+    }));
+    return { ...cloneDefaultState(), ...parsed, entries, activeGroupId: null,
+      filters: { query: parsed.filters?.query || "", tag: parsed.filters?.tag || "all" },
+      sidebarCollapsed: Boolean(parsed.sidebarCollapsed) };
+  } catch { return cloneDefaultState(); }
 }
-
-function cloneDefaultState() {
-  return JSON.parse(JSON.stringify(demoState));
-}
-
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
+function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
 function render() {
-  saveState();
-  renderFilters();
-  renderSidebar();
-  renderSidebarState();
-  renderStats();
-  renderEntries();
+  if (state.activeGroupId && !state.groups.some((g) => g.id === state.activeGroupId)) state.activeGroupId = null;
+  saveState(); renderFilters(); renderSidebar(); renderSidebarState(); renderStats(); renderContent();
 }
-
 function renderFilters() {
   els.searchInput.value = state.filters.query;
-  els.groupFilter.innerHTML = [
-    option("all", "All groups", state.filters.groupId),
-    ...state.groups.map((group) => option(group.id, group.name, state.filters.groupId))
-  ].join("");
-
   const tags = getAllTags();
-  els.tagFilter.innerHTML = [
-    option("all", "All tags", state.filters.tag),
-    ...tags.map((tag) => option(tag, `#${tag}`, state.filters.tag))
-  ].join("");
-
+  els.tagFilter.innerHTML = [option("all", "All tags", state.filters.tag), ...tags.map((tag) => option(tag, `#${tag}`, state.filters.tag))].join("");
   els.entryGroup.innerHTML = state.groups.map((group) => option(group.id, group.name, "")).join("");
   els.listViewBtn.classList.toggle("active", state.activeView === "list");
   els.boardViewBtn.classList.toggle("active", state.activeView === "board");
 }
-
 function renderSidebar() {
-  const counts = countEntriesByGroup();
+  const counts = countVideosByGroup();
   els.groupList.innerHTML = state.groups.map((group) => `
-    <div class="group-pill">
-      <span class="group-dot" style="background:${escapeAttr(safeColor(group.color))}"></span>
-      <div>
-        <strong>${escapeHtml(group.name)}</strong>
-        <span>${counts[group.id] || 0} segments</span>
-      </div>
+    <div class="group-pill ${state.activeGroupId === group.id ? "selected" : ""}">
+      <button class="group-open" type="button" data-open-group="${group.id}">
+        ${folderIcon(group.color)}<span><strong>${escapeHtml(group.name)}</strong><small>${counts[group.id] || 0} videos</small></span>
+      </button>
       <button class="icon-button" type="button" title="Edit group" data-edit-group="${group.id}">...</button>
-    </div>
-  `).join("");
-
+    </div>`).join("");
   const tags = getAllTags();
-  els.tagCloud.innerHTML = tags.length
-    ? tags.map((tag) => `<button class="tag" type="button" data-filter-tag="${escapeAttr(tag)}">#${escapeHtml(tag)}</button>`).join("")
-    : `<span class="meta-line">No tags yet</span>`;
+  els.tagCloud.innerHTML = tags.length ? tags.map((tag) => `<button class="tag" type="button" data-filter-tag="${escapeAttr(tag)}">#${escapeHtml(tag)}</button>`).join("") : `<span class="meta-line">No tags yet</span>`;
 }
-
 function renderSidebarState() {
   document.body.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
   els.expandSidebarBtn.classList.toggle("hidden", !state.sidebarCollapsed);
 }
-
 function renderStats() {
-  const allTags = getAllTags();
-  const totalSeconds = state.entries.reduce((sum, entry) => sum + Math.max(0, entry.end - entry.start), 0);
+  const visible = state.activeGroupId ? state.entries.filter((e) => e.groupId === state.activeGroupId) : state.entries;
+  const segments = visible.flatMap((entry) => entry.segments);
+  const seconds = segments.reduce((sum, s) => sum + Math.max(0, s.end - s.start), 0);
   els.statsRow.innerHTML = `
-    <div class="stat"><strong>${state.entries.length}</strong><span>segments saved</span></div>
+    <div class="stat"><strong>${visible.length}</strong><span>${state.activeGroupId ? "videos in group" : "videos saved"}</span></div>
+    <div class="stat"><strong>${segments.length}</strong><span>segments saved</span></div>
     <div class="stat"><strong>${state.groups.length}</strong><span>groups</span></div>
-    <div class="stat"><strong>${allTags.length}</strong><span>unique tags</span></div>
-    <div class="stat"><strong>${formatDuration(totalSeconds)}</strong><span>curated runtime</span></div>
-  `;
+    <div class="stat"><strong>${formatDuration(seconds)}</strong><span>curated runtime</span></div>`;
 }
-
-function renderEntries() {
-  const entries = getFilteredEntries();
-  els.listView.classList.toggle("hidden", state.activeView !== "list" || entries.length === 0);
-  els.boardView.classList.toggle("hidden", state.activeView !== "board" || entries.length === 0);
-  els.emptyState.classList.toggle("hidden", entries.length !== 0);
-
-  if (state.activeView === "list") {
-    els.listView.innerHTML = entries.map(renderEntryRow).join("");
-  } else {
-    els.boardView.innerHTML = state.groups.map((group) => {
-      const groupEntries = entries.filter((entry) => entry.groupId === group.id);
-      return `
-        <section class="board-column">
-          <div class="column-head">
-            <h2>${escapeHtml(group.name)}</h2>
-            <span class="tag">${groupEntries.length}</span>
-          </div>
-          ${groupEntries.map(renderEntryCard).join("") || `<p class="meta-line">No segments in this view.</p>`}
-        </section>
-      `;
-    }).join("");
+function renderContent() {
+  const inGroup = Boolean(state.activeGroupId);
+  els.folderView.classList.toggle("hidden", inGroup);
+  els.groupBreadcrumb.classList.toggle("hidden", !inGroup);
+  els.listView.classList.add("hidden"); els.boardView.classList.add("hidden"); els.emptyState.classList.add("hidden");
+  if (!inGroup) {
+    const counts = countVideosByGroup();
+    els.folderView.innerHTML = state.groups.map((group) => `
+      <button class="folder-card" type="button" data-open-group="${group.id}" style="--folder-color:${escapeAttr(safeColor(group.color))}">
+        ${folderIcon(group.color)}
+        <span class="folder-copy"><strong>${escapeHtml(group.name)}</strong><small>${counts[group.id] || 0} videos · ${countSegmentsForGroup(group.id)} segments</small></span>
+        <span class="folder-arrow">›</span>
+      </button>`).join("");
+    return;
   }
+  const group = getGroup(state.activeGroupId); els.activeGroupName.textContent = group.name;
+  const entries = getFilteredEntries();
+  if (!entries.length) { els.emptyState.classList.remove("hidden"); return; }
+  if (state.activeView === "list") { els.listView.classList.remove("hidden"); els.listView.innerHTML = entries.map(renderEntryRow).join(""); }
+  else { els.boardView.classList.remove("hidden"); els.boardView.innerHTML = entries.map(renderEntryCard).join(""); }
 }
-
 function renderEntryRow(entry) {
-  const group = getGroup(entry.groupId);
-  return `
-    <article class="entry-row">
-      <div class="entry-title">
-        <button class="thumb-button" type="button" title="Play segment" data-play-entry="${entry.id}">
-          <img src="${escapeAttr(thumbnailSrc(entry.videoId))}" alt="" loading="lazy">
-          <span class="play-badge"><span class="play-icon"></span></span>
-        </button>
-        <div>
-          <h3>${escapeHtml(entry.title)}</h3>
-          <p>${escapeHtml(formatDuration(entry.start))} to ${escapeHtml(formatDuration(entry.end))}</p>
-        </div>
-      </div>
-      <div>
-        <strong>${escapeHtml(group.name)}</strong>
-        <p class="meta-line">${escapeHtml(entry.notes || "No notes")}</p>
-      </div>
-      <div class="entry-tags">${renderTags(entry.tags)}</div>
-      <div class="entry-actions">
-        <button class="secondary-action" type="button" data-edit-entry="${entry.id}">Edit</button>
-        <button class="danger-action" type="button" data-delete-entry="${entry.id}">Delete</button>
-      </div>
-    </article>
-  `;
+  return `<article class="entry-row video-row">
+    <div class="video-summary"><img src="${escapeAttr(thumbnailSrc(entry.videoId))}" alt="" loading="lazy"><div><h3>${escapeHtml(entry.title)}</h3><p>${entry.segments.length} ${entry.segments.length === 1 ? "segment" : "segments"}</p></div></div>
+    <div class="segment-list">${entry.segments.map((segment) => renderSegmentItem(entry, segment)).join("")}</div>
+    <div class="entry-tags">${renderTags(entry.tags)}</div>
+    <div class="entry-actions"><button class="secondary-action" type="button" data-edit-entry="${entry.id}">Edit</button><button class="danger-action" type="button" data-delete-entry="${entry.id}">Delete</button></div>
+  </article>`;
 }
-
 function renderEntryCard(entry) {
   const group = getGroup(entry.groupId);
-  return `
-    <article class="entry-card" style="--card-accent:${escapeAttr(safeColor(group.color))}">
-      <button class="thumb-button wide-thumb" type="button" title="Play segment" data-play-entry="${entry.id}">
-        <img src="${escapeAttr(thumbnailSrc(entry.videoId))}" alt="" loading="lazy">
-        <span class="play-badge"><span class="play-icon"></span></span>
-      </button>
-      <div class="card-top">
-        <div>
-          <h3>${escapeHtml(entry.title)}</h3>
-          <p>${escapeHtml(formatDuration(entry.start))} to ${escapeHtml(formatDuration(entry.end))} - ${escapeHtml(group.name)}</p>
-        </div>
-      </div>
-      <p>${escapeHtml(entry.notes || "No notes")}</p>
-      <div class="entry-tags">${renderTags(entry.tags)}</div>
-      <div class="entry-actions">
-        <button class="secondary-action" type="button" data-edit-entry="${entry.id}">Edit</button>
-        <button class="danger-action" type="button" data-delete-entry="${entry.id}">Delete</button>
-      </div>
-    </article>
-  `;
+  return `<article class="entry-card video-card" style="--card-accent:${escapeAttr(safeColor(group.color))}">
+    <img class="video-thumbnail" src="${escapeAttr(thumbnailSrc(entry.videoId))}" alt="" loading="lazy">
+    <div><h3>${escapeHtml(entry.title)}</h3><p>${escapeHtml(entry.notes || `${entry.segments.length} saved segments`)}</p></div>
+    <div class="segment-list compact-list">${entry.segments.map((segment) => renderSegmentItem(entry, segment)).join("")}</div>
+    <div class="entry-tags">${renderTags(entry.tags)}</div>
+    <div class="entry-actions"><button class="secondary-action" type="button" data-edit-entry="${entry.id}">Edit</button><button class="danger-action" type="button" data-delete-entry="${entry.id}">Delete</button></div>
+  </article>`;
 }
-
-function renderTags(tags) {
-  return tags.length
-    ? tags.map((tag) => `<span class="tag">#${escapeHtml(tag)}</span>`).join("")
-    : `<span class="meta-line">No tags</span>`;
+function renderSegmentItem(entry, segment) {
+  return `<div class="segment-item"><div><strong>${escapeHtml(segment.label || "Saved segment")}</strong><span>${formatDuration(segment.start)} – ${formatDuration(segment.end)}</span></div><button class="segment-play" type="button" title="Play only this segment" data-play-entry="${entry.id}" data-play-segment="${segment.id}"><span class="play-icon"></span><span>Play</span></button></div>`;
 }
-
+function renderTags(tags) { return tags.length ? tags.map((tag) => `<span class="tag">#${escapeHtml(tag)}</span>`).join("") : `<span class="meta-line">No tags</span>`; }
 function getFilteredEntries() {
   const query = state.filters.query.trim().toLowerCase();
-  return state.entries
-    .filter((entry) => state.filters.groupId === "all" || entry.groupId === state.filters.groupId)
-    .filter((entry) => state.filters.tag === "all" || entry.tags.includes(state.filters.tag) || getGroup(entry.groupId).tags.includes(state.filters.tag))
-    .filter((entry) => {
-      if (!query) return true;
-      const group = getGroup(entry.groupId);
-      const haystack = [
-        entry.title,
-        entry.url,
-        entry.notes,
-        group.name,
-        ...entry.tags,
-        ...group.tags
-      ].join(" ").toLowerCase();
-      return haystack.includes(query);
-    })
+  return state.entries.filter((e) => e.groupId === state.activeGroupId)
+    .filter((e) => state.filters.tag === "all" || e.tags.includes(state.filters.tag) || getGroup(e.groupId).tags.includes(state.filters.tag))
+    .filter((e) => !query || [e.title, e.url, e.notes, ...e.tags, ...e.segments.map((s) => s.label)].join(" ").toLowerCase().includes(query))
     .sort((a, b) => b.createdAt - a.createdAt);
 }
-
-function getAllTags() {
-  return [...new Set([
-    ...state.groups.flatMap((group) => group.tags),
-    ...state.entries.flatMap((entry) => entry.tags)
-  ])].sort((a, b) => a.localeCompare(b));
-}
-
-function countEntriesByGroup() {
-  return state.entries.reduce((counts, entry) => {
-    counts[entry.groupId] = (counts[entry.groupId] || 0) + 1;
-    return counts;
-  }, {});
-}
-
-function getGroup(groupId) {
-  return state.groups.find((group) => group.id === groupId) || state.groups[0];
-}
+function getAllTags() { return [...new Set([...state.groups.flatMap((g) => g.tags), ...state.entries.flatMap((e) => e.tags)])].sort((a,b) => a.localeCompare(b)); }
+function countVideosByGroup() { return state.entries.reduce((c,e) => ({...c, [e.groupId]:(c[e.groupId]||0)+1}), {}); }
+function countSegmentsForGroup(id) { return state.entries.filter((e) => e.groupId === id).reduce((n,e) => n + e.segments.length, 0); }
+function getGroup(id) { return state.groups.find((g) => g.id === id) || state.groups[0]; }
+function folderIcon(color) { return `<svg class="folder-icon" viewBox="0 0 64 52" aria-hidden="true" style="color:${escapeAttr(safeColor(color))}"><path fill="currentColor" d="M4 10a6 6 0 0 1 6-6h15l6 7h23a6 6 0 0 1 6 6v25a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V10Z"/><path fill="rgba(255,255,255,.24)" d="M4 18h56v6H4z"/></svg>`; }
 
 function openEntryDialog(entry = null) {
-  els.entryForm.reset();
-  els.entryError.textContent = "";
-  els.entryDialogTitle.textContent = entry ? "Edit segment" : "New segment";
-  els.entryId.value = entry?.id || "";
-  els.entryTitle.value = entry?.title || "";
-  els.entryUrl.value = entry?.url || "";
-  els.entryStart.value = entry ? formatInputTime(entry.start) : "";
-  els.entryEnd.value = entry ? formatInputTime(entry.end) : "";
-  els.entryGroup.value = entry?.groupId || state.groups[0].id;
-  els.entryTags.value = entry?.tags.join(", ") || "";
-  els.entryNotes.value = entry?.notes || "";
-  els.entryDialog.showModal();
+  els.entryForm.reset(); els.entryError.textContent = ""; els.entryDialogTitle.textContent = entry ? "Edit video" : "New video";
+  els.entryId.value = entry?.id || ""; els.entryTitle.value = entry?.title || ""; els.entryUrl.value = entry?.url || "";
+  els.entryGroup.value = entry?.groupId || state.activeGroupId || state.groups[0].id; els.entryTags.value = entry?.tags.join(", ") || ""; els.entryNotes.value = entry?.notes || "";
+  const multiple = (entry?.segments.length || 1) > 1;
+  els.entryForm.elements.clipType.value = multiple ? "multiple" : "single";
+  renderSegmentInputs(entry?.segments || [{ id: createId("s"), label: "", start: "", end: "" }]);
+  updateClipTypeUI(); els.entryDialog.showModal();
 }
-
+function renderSegmentInputs(segments) {
+  els.segmentRows.innerHTML = segments.map((segment, index) => `
+    <div class="segment-input-row" data-segment-id="${escapeAttr(segment.id || createId("s"))}">
+      <span class="segment-number">${index + 1}</span>
+      <label>Label<input class="segment-label" type="text" placeholder="Intro, key idea, favorite verse..." value="${escapeAttr(segment.label || "")}" required></label>
+      <label>Start<input class="segment-start" type="text" placeholder="1:20" value="${segment.start === "" ? "" : escapeAttr(formatInputTime(segment.start))}" required></label>
+      <label>End<input class="segment-end" type="text" placeholder="2:05" value="${segment.end === "" ? "" : escapeAttr(formatInputTime(segment.end))}" required></label>
+      <button class="icon-button remove-segment ${segments.length === 1 ? "hidden" : ""}" type="button" title="Remove segment" data-remove-segment>×</button>
+    </div>`).join("");
+}
+function updateClipTypeUI() {
+  const multiple = els.entryForm.elements.clipType.value === "multiple";
+  els.addSegmentBtn.classList.toggle("hidden", !multiple);
+  if (!multiple && els.segmentRows.children.length > 1) renderSegmentInputs([readSegmentRows()[0]]);
+}
+function readSegmentRows() { return [...els.segmentRows.querySelectorAll(".segment-input-row")].map((row) => ({ id: row.dataset.segmentId || createId("s"), label: row.querySelector(".segment-label").value.trim(), start: row.querySelector(".segment-start").value, end: row.querySelector(".segment-end").value })); }
+function addSegmentRow() { const rows = readSegmentRows(); rows.push({id:createId("s"),label:"",start:"",end:""}); renderSegmentInputs(rows); }
 function saveEntry(event) {
-  event.preventDefault();
-  const id = els.entryId.value || createId("e");
-  const videoId = extractYouTubeId(els.entryUrl.value.trim());
-  const start = parseTimestamp(els.entryStart.value);
-  const end = parseTimestamp(els.entryEnd.value);
-
-  if (!videoId) {
-    els.entryError.textContent = "Enter a valid YouTube URL.";
-    return;
-  }
-
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
-    els.entryError.textContent = "End time must be later than start time.";
-    return;
-  }
-
-  const existing = state.entries.find((entry) => entry.id === id);
-  const nextEntry = {
-    id,
-    title: els.entryTitle.value.trim(),
-    url: els.entryUrl.value.trim(),
-    videoId,
-    start,
-    end,
-    groupId: els.entryGroup.value,
-    tags: parseTags(els.entryTags.value),
-    notes: els.entryNotes.value.trim(),
-    createdAt: existing?.createdAt || Date.now()
-  };
-
-  state.entries = existing
-    ? state.entries.map((entry) => entry.id === id ? nextEntry : entry)
-    : [nextEntry, ...state.entries];
-
-  els.entryDialog.close();
-  render();
+  event.preventDefault(); const id = els.entryId.value || createId("e"); const videoId = extractYouTubeId(els.entryUrl.value.trim());
+  if (!videoId) { els.entryError.textContent = "Enter a valid YouTube URL."; return; }
+  const segments = readSegmentRows().map((s) => ({...s, start:parseTimestamp(s.start), end:parseTimestamp(s.end)}));
+  if (!segments.length || segments.some((s) => !s.label || !Number.isFinite(s.start) || !Number.isFinite(s.end) || s.end <= s.start)) { els.entryError.textContent = "Every segment needs a label and an end time later than its start time."; return; }
+  const existing = state.entries.find((e) => e.id === id);
+  const next = { id, title:els.entryTitle.value.trim(), url:els.entryUrl.value.trim(), videoId, groupId:els.entryGroup.value, tags:parseTags(els.entryTags.value), notes:els.entryNotes.value.trim(), segments, createdAt:existing?.createdAt || Date.now() };
+  state.entries = existing ? state.entries.map((e) => e.id === id ? next : e) : [next, ...state.entries];
+  state.activeGroupId = next.groupId; els.entryDialog.close(); render();
 }
+function deleteEntry(id) { state.entries = state.entries.filter((e) => e.id !== id); render(); }
 
-function deleteEntry(entryId) {
-  const entry = state.entries.find((item) => item.id === entryId);
-  if (!entry) return;
-  state.entries = state.entries.filter((item) => item.id !== entryId);
-  render();
-}
+function openGroupDialog(group=null) { els.groupForm.reset(); els.groupError.textContent=""; els.groupDialogTitle.textContent=group?"Edit group":"New group"; els.groupId.value=group?.id||""; els.groupName.value=group?.name||""; els.groupTags.value=group?.tags.join(", ")||""; els.groupColor.value=group?.color||"#4f8f8a"; els.deleteGroupBtn.classList.toggle("hidden",!group); els.groupDialog.showModal(); }
+function saveGroup(event) { event.preventDefault(); const name=els.groupName.value.trim(); if(!name){els.groupError.textContent="Group name is required.";return;} const id=els.groupId.value||createId("g"), existing=state.groups.find((g)=>g.id===id), next={id,name,tags:parseTags(els.groupTags.value),color:els.groupColor.value}; state.groups=existing?state.groups.map((g)=>g.id===id?next:g):[...state.groups,next]; els.groupDialog.close(); render(); }
+function deleteGroup() { const id=els.groupId.value, group=getGroup(id); if(state.groups.length===1){els.groupError.textContent="Keep at least one group.";return;} if(!confirm(`Delete "${group.name}" and move its videos to another group?`))return; const fallback=state.groups.find((g)=>g.id!==id); state.entries=state.entries.map((e)=>e.groupId===id?{...e,groupId:fallback.id}:e); state.groups=state.groups.filter((g)=>g.id!==id); state.activeGroupId=null; els.groupDialog.close(); render(); }
 
-function openGroupDialog(group = null) {
-  els.groupForm.reset();
-  els.groupError.textContent = "";
-  els.groupDialogTitle.textContent = group ? "Edit group" : "New group";
-  els.groupId.value = group?.id || "";
-  els.groupName.value = group?.name || "";
-  els.groupTags.value = group?.tags.join(", ") || "";
-  els.groupColor.value = group?.color || "#4f8f8a";
-  els.deleteGroupBtn.classList.toggle("hidden", !group);
-  els.groupDialog.showModal();
-}
+function playEntry(entryId, segmentId) { const entry=state.entries.find((e)=>e.id===entryId), segment=entry?.segments.find((s)=>s.id===segmentId); if(!entry||!segment)return; resetPlayer(); activeSegment={...segment,entryId}; els.playerTitle.textContent=`${entry.title} — ${segment.label}`; els.playerMeta.textContent=`${formatDuration(segment.start)} to ${formatDuration(segment.end)}`; els.openYouTubeLink.href=buildWatchUrl(entry,segment); els.playerFrame.innerHTML='<div id="ytSegmentPlayer"></div>'; els.playerDialog.showModal(); loadYouTubeApi().then(()=>mountSegmentPlayer(entry,segment)); }
+function closeDialog(id){const d=document.getElementById(id);d.close();if(id==="playerDialog")resetPlayer();}
+function resetPlayer(){if(segmentGuard)clearInterval(segmentGuard);segmentGuard=null;if(segmentPlayer&&typeof segmentPlayer.destroy==="function")segmentPlayer.destroy();segmentPlayer=null;activeSegment=null;els.playerFrame.innerHTML="";}
+function loadYouTubeApi(){if(window.YT?.Player)return Promise.resolve(window.YT);if(youtubeApiPromise)return youtubeApiPromise;youtubeApiPromise=new Promise((resolve)=>{const prev=window.onYouTubeIframeAPIReady;window.onYouTubeIframeAPIReady=()=>{if(typeof prev==="function")prev();resolve(window.YT);};const script=document.createElement("script");script.src="https://www.youtube.com/iframe_api";document.head.appendChild(script);});return youtubeApiPromise;}
+function mountSegmentPlayer(entry,segment){if(!els.playerDialog.open||activeSegment?.id!==segment.id||!window.YT?.Player)return;const playerVars={autoplay:1,controls:1,rel:0,playsinline:1,start:segment.start,end:segment.end};if(location.origin.startsWith("http"))playerVars.origin=location.origin;segmentPlayer=new window.YT.Player("ytSegmentPlayer",{width:"100%",height:"100%",videoId:entry.videoId,playerVars,events:{onReady:(ev)=>{ev.target.loadVideoById({videoId:entry.videoId,startSeconds:segment.start,endSeconds:segment.end});startSegmentGuard(segment);},onStateChange:(ev)=>{if(!window.YT||!activeSegment)return;if(ev.data===window.YT.PlayerState.ENDED)resetSegmentToStart(false);if(ev.data===window.YT.PlayerState.PLAYING)startSegmentGuard(segment);}}});}
+function startSegmentGuard(segment){if(segmentGuard)clearInterval(segmentGuard);segmentGuard=setInterval(()=>{if(!segmentPlayer||activeSegment?.id!==segment.id||typeof segmentPlayer.getCurrentTime!=="function")return;const time=segmentPlayer.getCurrentTime();if(time<segment.start-.3||time>=segment.end-.15)resetSegmentToStart(time>=segment.end-.15);},250);}
+function resetSegmentToStart(pause){if(!segmentPlayer||!activeSegment)return;segmentPlayer.seekTo(activeSegment.start,true);if(pause&&typeof segmentPlayer.pauseVideo==="function")segmentPlayer.pauseVideo();}
 
-function saveGroup(event) {
-  event.preventDefault();
-  const name = els.groupName.value.trim();
-  if (!name) {
-    els.groupError.textContent = "Group name is required.";
-    return;
-  }
+function exportState(){const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download="youtube-segment-library.json";link.click();URL.revokeObjectURL(url);}
+function importState(event){const file=event.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const imported=JSON.parse(String(reader.result));if(!Array.isArray(imported.groups)||!Array.isArray(imported.entries))throw new Error();localStorage.setItem(STORAGE_KEY,JSON.stringify(imported));state=loadState();render();}catch{alert("That file does not look like a Segment Library backup.");}};reader.readAsText(file);event.target.value="";}
+function parseTimestamp(value){const parts=String(value).trim().split(":").map(Number);if(parts.some((p)=>!Number.isFinite(p)||p<0))return NaN;return parts.reduce((t,p)=>t*60+p,0);}
+function formatInputTime(s){return String(s);} function formatDuration(total){const s=Math.max(0,Math.floor(total)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return h?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${m}:${String(sec).padStart(2,"0")}`;}
+function parseTags(value){return [...new Set(String(value).split(",").map((t)=>t.trim().replace(/^#/,"").toLowerCase()).filter(Boolean))];}
+function buildWatchUrl(entry,segment){const url=new URL("https://www.youtube.com/watch");url.searchParams.set("v",entry.videoId);url.searchParams.set("t",`${segment.start}s`);return url.toString();}
+function thumbnailSrc(id){return `https://img.youtube.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`;}
+function extractYouTubeId(url){try{const p=new URL(url);if(p.hostname.includes("youtu.be"))return p.pathname.split("/").filter(Boolean)[0]||"";if(p.searchParams.get("v"))return p.searchParams.get("v");const parts=p.pathname.split("/").filter(Boolean),i=parts.findIndex((x)=>["embed","shorts","live"].includes(x));return i>=0?parts[i+1]||"":"";}catch{return "";}}
+function option(value,label,selected){return `<option value="${escapeAttr(value)}" ${value===selected?"selected":""}>${escapeHtml(label)}</option>`;}
+function createId(prefix){return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;}
+function escapeHtml(value){return String(value).replace(/[&<>"']/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"})[c]);}
+function escapeAttr(v){return escapeHtml(v);} function safeColor(v){return /^#[0-9a-f]{6}$/i.test(String(v))?v:"#4f8f8a";}
 
-  const id = els.groupId.value || createId("g");
-  const existing = state.groups.find((group) => group.id === id);
-  const nextGroup = {
-    id,
-    name,
-    tags: parseTags(els.groupTags.value),
-    color: els.groupColor.value
-  };
-
-  state.groups = existing
-    ? state.groups.map((group) => group.id === id ? nextGroup : group)
-    : [...state.groups, nextGroup];
-
-  els.groupDialog.close();
-  render();
-}
-
-function deleteGroup() {
-  const groupId = els.groupId.value;
-  const group = getGroup(groupId);
-  if (state.groups.length === 1) {
-    els.groupError.textContent = "Keep at least one group.";
-    return;
-  }
-
-  if (!confirm(`Delete "${group.name}" and move its segments to another group?`)) return;
-  const fallbackGroup = state.groups.find((item) => item.id !== groupId);
-  state.entries = state.entries.map((entry) => entry.groupId === groupId ? { ...entry, groupId: fallbackGroup.id } : entry);
-  state.groups = state.groups.filter((item) => item.id !== groupId);
-  els.groupDialog.close();
-  render();
-}
-
-function playEntry(entryId) {
-  const entry = state.entries.find((item) => item.id === entryId);
-  if (!entry) return;
-
-  resetPlayer();
-  activeSegment = entry;
-  els.playerTitle.textContent = entry.title;
-  els.playerMeta.textContent = `${formatDuration(entry.start)} to ${formatDuration(entry.end)}`;
-  els.openYouTubeLink.href = buildWatchUrl(entry);
-  els.playerFrame.innerHTML = `<div id="ytSegmentPlayer"></div>`;
-  els.playerDialog.showModal();
-  loadYouTubeApi().then(() => mountSegmentPlayer(entry));
-}
-
-function closeDialog(dialogId) {
-  const dialog = document.getElementById(dialogId);
-  dialog.close();
-  if (dialogId === "playerDialog") {
-    resetPlayer();
-  }
-}
-
-function resetPlayer() {
-  if (segmentGuard) {
-    clearInterval(segmentGuard);
-    segmentGuard = null;
-  }
-
-  if (segmentPlayer && typeof segmentPlayer.destroy === "function") {
-    segmentPlayer.destroy();
-  }
-
-  segmentPlayer = null;
-  activeSegment = null;
-  els.playerFrame.innerHTML = "";
-}
-
-function exportState() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "youtube-segment-library.json";
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-function importState(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const imported = JSON.parse(String(reader.result));
-      if (!Array.isArray(imported.groups) || !Array.isArray(imported.entries)) {
-        throw new Error("Invalid backup");
-      }
-      state = { ...cloneDefaultState(), ...imported, filters: demoState.filters };
-      render();
-    } catch {
-      alert("That file does not look like a Segment Library backup.");
-    }
-  };
-  reader.readAsText(file);
-  event.target.value = "";
-}
-
-function parseTimestamp(value) {
-  const parts = String(value).trim().split(":").map(Number);
-  if (parts.some((part) => !Number.isFinite(part) || part < 0)) return NaN;
-  return parts.reduce((total, part) => total * 60 + part, 0);
-}
-
-function formatInputTime(totalSeconds) {
-  return String(totalSeconds);
-}
-
-function formatDuration(totalSeconds) {
-  const seconds = Math.max(0, Math.floor(totalSeconds));
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-function parseTags(value) {
-  return [...new Set(String(value)
-    .split(",")
-    .map((tag) => tag.trim().replace(/^#/, "").toLowerCase())
-    .filter(Boolean))];
-}
-
-function buildWatchUrl(entry) {
-  const url = new URL("https://www.youtube.com/watch");
-  url.searchParams.set("v", entry.videoId);
-  url.searchParams.set("t", `${entry.start}s`);
-  return url.toString();
-}
-
-function loadYouTubeApi() {
-  if (window.YT?.Player) {
-    return Promise.resolve(window.YT);
-  }
-
-  if (youtubeApiPromise) {
-    return youtubeApiPromise;
-  }
-
-  youtubeApiPromise = new Promise((resolve) => {
-    const previousCallback = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      if (typeof previousCallback === "function") {
-        previousCallback();
-      }
-      resolve(window.YT);
-    };
-
-    const script = document.createElement("script");
-    script.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(script);
-  });
-
-  return youtubeApiPromise;
-}
-
-function mountSegmentPlayer(entry) {
-  if (!els.playerDialog.open || activeSegment?.id !== entry.id || !window.YT?.Player) {
-    return;
-  }
-
-  const playerVars = {
-    autoplay: 1,
-    controls: 1,
-    rel: 0,
-    playsinline: 1,
-    start: entry.start,
-    end: entry.end
-  };
-
-  if (location.origin.startsWith("http")) {
-    playerVars.origin = location.origin;
-  }
-
-  segmentPlayer = new window.YT.Player("ytSegmentPlayer", {
-    width: "100%",
-    height: "100%",
-    videoId: entry.videoId,
-    playerVars,
-    events: {
-      onReady: (event) => {
-        event.target.loadVideoById({
-          videoId: entry.videoId,
-          startSeconds: entry.start,
-          endSeconds: entry.end
-        });
-        startSegmentGuard(entry);
-      },
-      onStateChange: (event) => {
-        if (!window.YT || !activeSegment) return;
-        if (event.data === window.YT.PlayerState.ENDED) {
-          resetSegmentToStart(false);
-        }
-        if (event.data === window.YT.PlayerState.PLAYING) {
-          startSegmentGuard(entry);
-        }
-      }
-    }
-  });
-}
-
-function startSegmentGuard(entry) {
-  if (segmentGuard) {
-    clearInterval(segmentGuard);
-  }
-
-  segmentGuard = setInterval(() => {
-    if (!segmentPlayer || activeSegment?.id !== entry.id || typeof segmentPlayer.getCurrentTime !== "function") {
-      return;
-    }
-
-    const currentTime = segmentPlayer.getCurrentTime();
-    if (currentTime < entry.start - 0.3 || currentTime >= entry.end - 0.15) {
-      resetSegmentToStart(currentTime >= entry.end - 0.15);
-    }
-  }, 250);
-}
-
-function resetSegmentToStart(shouldPause) {
-  if (!segmentPlayer || !activeSegment) return;
-  segmentPlayer.seekTo(activeSegment.start, true);
-  if (shouldPause && typeof segmentPlayer.pauseVideo === "function") {
-    segmentPlayer.pauseVideo();
-  }
-}
-
-function thumbnailSrc(videoId) {
-  return `https://img.youtube.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
-}
-
-function extractYouTubeId(url) {
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname.includes("youtu.be")) {
-      return parsed.pathname.split("/").filter(Boolean)[0] || "";
-    }
-    if (parsed.searchParams.get("v")) {
-      return parsed.searchParams.get("v");
-    }
-    const parts = parsed.pathname.split("/").filter(Boolean);
-    const marker = parts.findIndex((part) => ["embed", "shorts", "live"].includes(part));
-    if (marker >= 0 && parts[marker + 1]) {
-      return parts[marker + 1];
-    }
-  } catch {
-    return "";
-  }
-  return "";
-}
-
-function option(value, label, selectedValue) {
-  return `<option value="${escapeAttr(value)}" ${value === selectedValue ? "selected" : ""}>${escapeHtml(label)}</option>`;
-}
-
-function createId(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "\"": "&quot;",
-    "'": "&#039;"
-  })[char]);
-}
-
-function escapeAttr(value) {
-  return escapeHtml(value);
-}
-
-function safeColor(value) {
-  return /^#[0-9a-f]{6}$/i.test(String(value)) ? value : "#4f8f8a";
-}
-
-document.addEventListener("click", (event) => {
-  const target = event.target.closest("button, [data-close-dialog]");
-  if (!target) return;
-
-  if (target.id === "newEntryBtn") openEntryDialog();
-  if (target.id === "newGroupBtn") openGroupDialog();
-  if (target.id === "collapseSidebarBtn") {
-    state.sidebarCollapsed = true;
-    render();
-  }
-  if (target.id === "expandSidebarBtn") {
-    state.sidebarCollapsed = false;
-    render();
-  }
-  if (target.id === "listViewBtn") {
-    state.activeView = "list";
-    render();
-  }
-  if (target.id === "boardViewBtn") {
-    state.activeView = "board";
-    render();
-  }
-  if (target.dataset.editEntry) {
-    openEntryDialog(state.entries.find((entry) => entry.id === target.dataset.editEntry));
-  }
-  if (target.dataset.deleteEntry) {
-    deleteEntry(target.dataset.deleteEntry);
-  }
-  if (target.dataset.playEntry) {
-    playEntry(target.dataset.playEntry);
-  }
-  if (target.dataset.editGroup) {
-    openGroupDialog(state.groups.find((group) => group.id === target.dataset.editGroup));
-  }
-  if (target.dataset.filterTag) {
-    state.filters.tag = target.dataset.filterTag;
-    render();
-  }
-  if (target.dataset.closeDialog) {
-    closeDialog(target.dataset.closeDialog);
-  }
+document.addEventListener("click",(event)=>{const target=event.target.closest("button,[data-close-dialog]");if(!target)return;
+  if(target.id==="newEntryBtn")openEntryDialog(); if(target.id==="newGroupBtn")openGroupDialog();
+  if(target.id==="collapseSidebarBtn"){state.sidebarCollapsed=true;render();} if(target.id==="expandSidebarBtn"){state.sidebarCollapsed=false;render();}
+  if(target.id==="listViewBtn"){state.activeView="list";render();} if(target.id==="boardViewBtn"){state.activeView="board";render();}
+  if(target.id==="backToGroupsBtn"){state.activeGroupId=null;render();} if(target.dataset.openGroup){state.activeGroupId=target.dataset.openGroup;render();}
+  if(target.dataset.editEntry)openEntryDialog(state.entries.find((e)=>e.id===target.dataset.editEntry)); if(target.dataset.deleteEntry)deleteEntry(target.dataset.deleteEntry);
+  if(target.dataset.playEntry)playEntry(target.dataset.playEntry,target.dataset.playSegment); if(target.dataset.editGroup)openGroupDialog(state.groups.find((g)=>g.id===target.dataset.editGroup));
+  if(target.dataset.filterTag){state.filters.tag=target.dataset.filterTag;render();} if(target.dataset.closeDialog)closeDialog(target.dataset.closeDialog);
+  if(target.id==="addSegmentBtn")addSegmentRow(); if(target.dataset.removeSegment!==undefined){const rows=readSegmentRows().filter((s)=>s.id!==target.closest(".segment-input-row").dataset.segmentId);renderSegmentInputs(rows);}
 });
-
-document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") return;
-  const openDialogs = [...document.querySelectorAll("dialog[open]")];
-  const topDialog = openDialogs.at(-1);
-  if (!topDialog) return;
-  event.preventDefault();
-  closeDialog(topDialog.id);
-}, true);
-
-els.entryForm.addEventListener("submit", saveEntry);
-els.groupForm.addEventListener("submit", saveGroup);
-els.deleteGroupBtn.addEventListener("click", deleteGroup);
-els.exportBtn.addEventListener("click", exportState);
-els.importInput.addEventListener("change", importState);
-
-els.searchInput.addEventListener("input", (event) => {
-  state.filters.query = event.target.value;
-  render();
-});
-
-els.groupFilter.addEventListener("change", (event) => {
-  state.filters.groupId = event.target.value;
-  render();
-});
-
-els.tagFilter.addEventListener("change", (event) => {
-  state.filters.tag = event.target.value;
-  render();
-});
-
-document.querySelectorAll("dialog").forEach((dialog) => {
-  dialog.addEventListener("cancel", (event) => {
-    event.preventDefault();
-    closeDialog(dialog.id);
-  });
-
-  dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) {
-      closeDialog(dialog.id);
-    }
-  });
-});
-
+document.addEventListener("keydown",(event)=>{if(event.key!=="Escape")return;const dialog=[...document.querySelectorAll("dialog[open]")].at(-1);if(dialog){event.preventDefault();closeDialog(dialog.id);}},true);
+els.entryForm.addEventListener("submit",saveEntry); els.entryForm.addEventListener("change",(e)=>{if(e.target.name==="clipType")updateClipTypeUI();});
+els.groupForm.addEventListener("submit",saveGroup); els.deleteGroupBtn.addEventListener("click",deleteGroup); els.exportBtn.addEventListener("click",exportState); els.importInput.addEventListener("change",importState);
+els.searchInput.addEventListener("input",(e)=>{state.filters.query=e.target.value;render();}); els.tagFilter.addEventListener("change",(e)=>{state.filters.tag=e.target.value;render();});
+document.querySelectorAll("dialog").forEach((dialog)=>{dialog.addEventListener("cancel",(e)=>{e.preventDefault();closeDialog(dialog.id);});dialog.addEventListener("click",(e)=>{if(e.target===dialog)closeDialog(dialog.id);});});
 render();
