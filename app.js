@@ -82,7 +82,7 @@ function renderSidebarState() {
 function renderStats() {
   const visible = state.activeGroupId ? state.entries.filter((e) => e.groupId === state.activeGroupId) : state.entries;
   const segments = visible.flatMap((entry) => entry.segments);
-  const seconds = segments.reduce((sum, s) => sum + Math.max(0, s.end - s.start), 0);
+  const seconds = segments.reduce((sum, s) => Number.isFinite(s.end) ? sum + Math.max(0, s.end - s.start) : sum, 0);
   els.statsRow.innerHTML = `
     <div class="stat"><strong>${visible.length}</strong><span>${state.activeGroupId ? "videos in group" : "videos saved"}</span></div>
     <div class="stat"><strong>${segments.length}</strong><span>segments saved</span></div>
@@ -129,7 +129,8 @@ function renderEntryCard(entry) {
   </article>`;
 }
 function renderSegmentItem(entry, segment) {
-  return `<div class="segment-item"><div><strong>${escapeHtml(segment.label || "Saved segment")}</strong><span>${formatDuration(segment.start)} – ${formatDuration(segment.end)}</span></div><button class="segment-play" type="button" title="Play only this segment" data-play-entry="${entry.id}" data-play-segment="${segment.id}"><span class="play-icon"></span><span>Play</span></button></div>`;
+  const range = Number.isFinite(segment.end) ? `${formatDuration(segment.start)} – ${formatDuration(segment.end)}` : `${formatDuration(segment.start)} – End of video`;
+  return `<div class="segment-item"><div><strong>${escapeHtml(segment.label || "Untitled segment")}</strong><span>${range}</span></div><button class="segment-play" type="button" title="Play from this timestamp" data-play-entry="${entry.id}" data-play-segment="${segment.id}"><span class="play-icon"></span><span>Play</span></button></div>`;
 }
 function renderTags(tags) { return tags.length ? tags.map((tag) => `<span class="tag">#${escapeHtml(tag)}</span>`).join("") : `<span class="meta-line">No tags</span>`; }
 function getFilteredEntries() {
@@ -158,9 +159,9 @@ function renderSegmentInputs(segments) {
   els.segmentRows.innerHTML = segments.map((segment, index) => `
     <div class="segment-input-row" data-segment-id="${escapeAttr(segment.id || createId("s"))}">
       <span class="segment-number">${index + 1}</span>
-      <label>Label<input class="segment-label" type="text" placeholder="Intro, key idea, favorite verse..." value="${escapeAttr(segment.label || "")}" required></label>
+      <label>Label <small>(optional)</small><input class="segment-label" type="text" placeholder="Intro, key idea, favorite verse..." value="${escapeAttr(segment.label || "")}"></label>
       <label>Start<input class="segment-start" type="text" placeholder="1:20" value="${segment.start === "" ? "" : escapeAttr(formatInputTime(segment.start))}" required></label>
-      <label>End<input class="segment-end" type="text" placeholder="2:05" value="${segment.end === "" ? "" : escapeAttr(formatInputTime(segment.end))}" required></label>
+      <label>End <small>(optional)</small><input class="segment-end" type="text" placeholder="End of video" value="${Number.isFinite(segment.end) ? escapeAttr(formatInputTime(segment.end)) : ""}"></label>
       <button class="icon-button remove-segment ${segments.length === 1 ? "hidden" : ""}" type="button" title="Remove segment" data-remove-segment>×</button>
     </div>`).join("");
 }
@@ -174,8 +175,8 @@ function addSegmentRow() { const rows = readSegmentRows(); rows.push({id:createI
 function saveEntry(event) {
   event.preventDefault(); const id = els.entryId.value || createId("e"); const videoId = extractYouTubeId(els.entryUrl.value.trim());
   if (!videoId) { els.entryError.textContent = "Enter a valid YouTube URL."; return; }
-  const segments = readSegmentRows().map((s) => ({...s, start:parseTimestamp(s.start), end:parseTimestamp(s.end)}));
-  if (!segments.length || segments.some((s) => !s.label || !Number.isFinite(s.start) || !Number.isFinite(s.end) || s.end <= s.start)) { els.entryError.textContent = "Every segment needs a label and an end time later than its start time."; return; }
+  const segments = readSegmentRows().map((s) => ({...s, start:parseTimestamp(s.start), end:parseOptionalTimestamp(s.end)}));
+  if (!segments.length || segments.some((s) => !Number.isFinite(s.start) || (Number.isFinite(s.end) && s.end <= s.start))) { els.entryError.textContent = "Every segment needs a valid start time. If provided, the end time must be later than the start."; return; }
   const existing = state.entries.find((e) => e.id === id);
   const next = { id, title:els.entryTitle.value.trim(), url:els.entryUrl.value.trim(), videoId, groupId:els.entryGroup.value, tags:parseTags(els.entryTags.value), notes:els.entryNotes.value.trim(), segments, createdAt:existing?.createdAt || Date.now() };
   state.entries = existing ? state.entries.map((e) => e.id === id ? next : e) : [next, ...state.entries];
@@ -187,17 +188,19 @@ function openGroupDialog(group=null) { els.groupForm.reset(); els.groupError.tex
 function saveGroup(event) { event.preventDefault(); const name=els.groupName.value.trim(); if(!name){els.groupError.textContent="Group name is required.";return;} const id=els.groupId.value||createId("g"), existing=state.groups.find((g)=>g.id===id), next={id,name,tags:parseTags(els.groupTags.value),color:els.groupColor.value}; state.groups=existing?state.groups.map((g)=>g.id===id?next:g):[...state.groups,next]; els.groupDialog.close(); render(); }
 function deleteGroup() { const id=els.groupId.value, group=getGroup(id); if(state.groups.length===1){els.groupError.textContent="Keep at least one group.";return;} if(!confirm(`Delete "${group.name}" and move its videos to another group?`))return; const fallback=state.groups.find((g)=>g.id!==id); state.entries=state.entries.map((e)=>e.groupId===id?{...e,groupId:fallback.id}:e); state.groups=state.groups.filter((g)=>g.id!==id); state.activeGroupId=null; els.groupDialog.close(); render(); }
 
-function playEntry(entryId, segmentId) { const entry=state.entries.find((e)=>e.id===entryId), segment=entry?.segments.find((s)=>s.id===segmentId); if(!entry||!segment)return; resetPlayer(); activeSegment={...segment,entryId}; els.playerTitle.textContent=`${entry.title} — ${segment.label}`; els.playerMeta.textContent=`${formatDuration(segment.start)} to ${formatDuration(segment.end)}`; els.openYouTubeLink.href=buildWatchUrl(entry,segment); els.playerFrame.innerHTML='<div id="ytSegmentPlayer"></div>'; els.playerDialog.showModal(); loadYouTubeApi().then(()=>mountSegmentPlayer(entry,segment)); }
+function playEntry(entryId, segmentId) { const entry=state.entries.find((e)=>e.id===entryId), segment=entry?.segments.find((s)=>s.id===segmentId); if(!entry||!segment)return; resetPlayer(); activeSegment={...segment,entryId}; els.playerTitle.textContent=segment.label?`${entry.title} — ${segment.label}`:entry.title; els.playerMeta.textContent=Number.isFinite(segment.end)?`${formatDuration(segment.start)} to ${formatDuration(segment.end)}`:`Starts at ${formatDuration(segment.start)} and plays to the end`; els.openYouTubeLink.href=buildWatchUrl(entry,segment); els.playerFrame.innerHTML='<div id="ytSegmentPlayer"></div>'; els.playerDialog.showModal(); loadYouTubeApi().then(()=>mountSegmentPlayer(entry,segment)); }
 function closeDialog(id){const d=document.getElementById(id);d.close();if(id==="playerDialog")resetPlayer();}
 function resetPlayer(){if(segmentGuard)clearInterval(segmentGuard);segmentGuard=null;if(segmentPlayer&&typeof segmentPlayer.destroy==="function")segmentPlayer.destroy();segmentPlayer=null;activeSegment=null;els.playerFrame.innerHTML="";}
 function loadYouTubeApi(){if(window.YT?.Player)return Promise.resolve(window.YT);if(youtubeApiPromise)return youtubeApiPromise;youtubeApiPromise=new Promise((resolve)=>{const prev=window.onYouTubeIframeAPIReady;window.onYouTubeIframeAPIReady=()=>{if(typeof prev==="function")prev();resolve(window.YT);};const script=document.createElement("script");script.src="https://www.youtube.com/iframe_api";document.head.appendChild(script);});return youtubeApiPromise;}
-function mountSegmentPlayer(entry,segment){if(!els.playerDialog.open||activeSegment?.id!==segment.id||!window.YT?.Player)return;const playerVars={autoplay:1,controls:1,rel:0,playsinline:1,start:segment.start,end:segment.end};if(location.origin.startsWith("http"))playerVars.origin=location.origin;segmentPlayer=new window.YT.Player("ytSegmentPlayer",{width:"100%",height:"100%",videoId:entry.videoId,playerVars,events:{onReady:(ev)=>{ev.target.loadVideoById({videoId:entry.videoId,startSeconds:segment.start,endSeconds:segment.end});startSegmentGuard(segment);},onStateChange:(ev)=>{if(!window.YT||!activeSegment)return;if(ev.data===window.YT.PlayerState.ENDED)resetSegmentToStart(false);if(ev.data===window.YT.PlayerState.PLAYING)startSegmentGuard(segment);}}});}
-function startSegmentGuard(segment){if(segmentGuard)clearInterval(segmentGuard);segmentGuard=setInterval(()=>{if(!segmentPlayer||activeSegment?.id!==segment.id||typeof segmentPlayer.getCurrentTime!=="function")return;const time=segmentPlayer.getCurrentTime();if(time<segment.start-.3||time>=segment.end-.15)resetSegmentToStart(time>=segment.end-.15);},250);}
+function mountSegmentPlayer(entry,segment){if(!els.playerDialog.open||activeSegment?.id!==segment.id||!window.YT?.Player)return;const playerVars={autoplay:1,controls:1,rel:0,playsinline:1,start:segment.start};if(Number.isFinite(segment.end))playerVars.end=segment.end;if(location.origin.startsWith("http"))playerVars.origin=location.origin;segmentPlayer=new window.YT.Player("ytSegmentPlayer",{width:"100%",height:"100%",videoId:entry.videoId,playerVars,events:{onReady:(ev)=>{const videoOptions={videoId:entry.videoId,startSeconds:segment.start};if(Number.isFinite(segment.end))videoOptions.endSeconds=segment.end;ev.target.loadVideoById(videoOptions);startSegmentGuard(segment);},onStateChange:(ev)=>{if(!window.YT||!activeSegment)return;if(ev.data===window.YT.PlayerState.ENDED)resetSegmentToStart(false);if(ev.data===window.YT.PlayerState.PLAYING)startSegmentGuard(segment);}}});}
+function startSegmentGuard(segment){if(segmentGuard)clearInterval(segmentGuard);segmentGuard=setInterval(()=>{if(!segmentPlayer||activeSegment?.id!==segment.id||typeof segmentPlayer.getCurrentTime!=="function")return;const time=segmentPlayer.getCurrentTime(),reachedEnd=Number.isFinite(segment.end)&&time>=segment.end-.15;if(time<segment.start-.3||reachedEnd)resetSegmentToStart(reachedEnd);},250);}
 function resetSegmentToStart(pause){if(!segmentPlayer||!activeSegment)return;segmentPlayer.seekTo(activeSegment.start,true);if(pause&&typeof segmentPlayer.pauseVideo==="function")segmentPlayer.pauseVideo();}
 
 function exportState(){const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download="youtube-segment-library.json";link.click();URL.revokeObjectURL(url);}
 function importState(event){const file=event.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const imported=JSON.parse(String(reader.result));if(!Array.isArray(imported.groups)||!Array.isArray(imported.entries))throw new Error();localStorage.setItem(STORAGE_KEY,JSON.stringify(imported));state=loadState();render();}catch{alert("That file does not look like a Segment Library backup.");}};reader.readAsText(file);event.target.value="";}
-function parseTimestamp(value){const parts=String(value).trim().split(":").map(Number);if(parts.some((p)=>!Number.isFinite(p)||p<0))return NaN;return parts.reduce((t,p)=>t*60+p,0);}
+function normalizeTimestamp(value){return String(value).trim().replace(/\./g,":");}
+function parseTimestamp(value){const normalized=normalizeTimestamp(value);if(!normalized)return NaN;const parts=normalized.split(":").map(Number);if(parts.some((p)=>!Number.isFinite(p)||p<0))return NaN;return parts.reduce((t,p)=>t*60+p,0);}
+function parseOptionalTimestamp(value){return normalizeTimestamp(value)?parseTimestamp(value):null;}
 function formatInputTime(s){return String(s);} function formatDuration(total){const s=Math.max(0,Math.floor(total)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return h?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${m}:${String(sec).padStart(2,"0")}`;}
 function parseTags(value){return [...new Set(String(value).split(",").map((t)=>t.trim().replace(/^#/,"").toLowerCase()).filter(Boolean))];}
 function buildWatchUrl(entry,segment){const url=new URL("https://www.youtube.com/watch");url.searchParams.set("v",entry.videoId);url.searchParams.set("t",`${segment.start}s`);return url.toString();}
@@ -220,6 +223,7 @@ document.addEventListener("click",(event)=>{const target=event.target.closest("b
 });
 document.addEventListener("keydown",(event)=>{if(event.key!=="Escape")return;const dialog=[...document.querySelectorAll("dialog[open]")].at(-1);if(dialog){event.preventDefault();closeDialog(dialog.id);}},true);
 els.entryForm.addEventListener("submit",saveEntry); els.entryForm.addEventListener("change",(e)=>{if(e.target.name==="clipType")updateClipTypeUI();});
+els.segmentRows.addEventListener("input",(e)=>{if(e.target.matches(".segment-start, .segment-end")&&e.target.value.includes("."))e.target.value=e.target.value.replace(/\./g,":");});
 els.groupForm.addEventListener("submit",saveGroup); els.deleteGroupBtn.addEventListener("click",deleteGroup); els.exportBtn.addEventListener("click",exportState); els.importInput.addEventListener("change",importState);
 els.searchInput.addEventListener("input",(e)=>{state.filters.query=e.target.value;render();}); els.tagFilter.addEventListener("change",(e)=>{state.filters.tag=e.target.value;render();});
 document.querySelectorAll("dialog").forEach((dialog)=>{dialog.addEventListener("cancel",(e)=>{e.preventDefault();closeDialog(dialog.id);});dialog.addEventListener("click",(e)=>{if(e.target===dialog)closeDialog(dialog.id);});});
