@@ -282,6 +282,20 @@ body.sidebar-collapsed .sidebar {
   font-size: 12px;
 }
 
+button.tag.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(46, 125, 114, 0.24);
+  font-weight: 750;
+}
+
+button.tag.is-selected:hover,
+button.tag.is-selected:focus-visible {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+}
+
 .backup-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

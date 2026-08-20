@@ -73,7 +73,10 @@ function renderSidebar() {
       <button class="icon-button" type="button" title="Edit group" data-edit-group="${group.id}">...</button>
     </div>`).join("");
   const tags = getAllTags();
-  els.tagCloud.innerHTML = tags.length ? tags.map((tag) => `<button class="tag" type="button" data-filter-tag="${escapeAttr(tag)}">#${escapeHtml(tag)}</button>`).join("") : `<span class="meta-line">No tags yet</span>`;
+  els.tagCloud.innerHTML = tags.length ? tags.map((tag) => {
+    const selected = state.filters.tag === tag;
+    return `<button class="tag ${selected ? "is-selected" : ""}" type="button" aria-pressed="${selected}" data-filter-tag="${escapeAttr(tag)}">#${escapeHtml(tag)}</button>`;
+  }).join("") : `<span class="meta-line">No tags yet</span>`;
 }
 function renderSidebarState() {
   document.body.classList.toggle("sidebar-collapsed", state.sidebarCollapsed);
@@ -220,7 +223,7 @@ document.addEventListener("click",(event)=>{const target=event.target.closest("b
   if(target.id==="backToGroupsBtn"){state.activeGroupId=null;render();} if(target.dataset.openGroup){state.activeGroupId=target.dataset.openGroup;render();}
   if(target.dataset.editEntry)openEntryDialog(state.entries.find((e)=>e.id===target.dataset.editEntry)); if(target.dataset.deleteEntry)deleteEntry(target.dataset.deleteEntry);
   if(target.dataset.playEntry)playEntry(target.dataset.playEntry,target.dataset.playSegment); if(target.dataset.editGroup)openGroupDialog(state.groups.find((g)=>g.id===target.dataset.editGroup));
-  if(target.dataset.filterTag){state.filters.tag=target.dataset.filterTag;render();} if(target.dataset.closeDialog)closeDialog(target.dataset.closeDialog);
+  if(target.dataset.filterTag){state.filters.tag=state.filters.tag===target.dataset.filterTag?"all":target.dataset.filterTag;render();} if(target.dataset.closeDialog)closeDialog(target.dataset.closeDialog);
   if(target.id==="addSegmentBtn")addSegmentRow(); if(target.dataset.removeSegment!==undefined){const rows=readSegmentRows().filter((s)=>s.id!==target.closest(".segment-input-row").dataset.segmentId);renderSegmentInputs(rows);}
 });
 document.addEventListener("keydown",(event)=>{if(event.key!=="Escape")return;const dialog=[...document.querySelectorAll("dialog[open]")].at(-1);if(dialog){event.preventDefault();closeDialog(dialog.id);}},true);
