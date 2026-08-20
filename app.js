@@ -159,9 +159,9 @@ function renderSegmentInputs(segments) {
   els.segmentRows.innerHTML = segments.map((segment, index) => `
     <div class="segment-input-row" data-segment-id="${escapeAttr(segment.id || createId("s"))}">
       <span class="segment-number">${index + 1}</span>
-      <label>Label <small>(optional)</small><input class="segment-label" type="text" placeholder="Intro, key idea, favorite verse..." value="${escapeAttr(segment.label || "")}"></label>
+      <label>Label<input class="segment-label" type="text" placeholder="Intro, key idea, favorite verse..." value="${escapeAttr(segment.label || "")}"></label>
       <label>Start<input class="segment-start" type="text" placeholder="1:20" value="${segment.start === "" ? "" : escapeAttr(formatInputTime(segment.start))}" required></label>
-      <label>End <small>(optional)</small><input class="segment-end" type="text" placeholder="End of video" value="${Number.isFinite(segment.end) ? escapeAttr(formatInputTime(segment.end)) : ""}"></label>
+      <label>End<input class="segment-end" type="text" placeholder="End of video" value="${Number.isFinite(segment.end) ? escapeAttr(formatInputTime(segment.end)) : ""}"></label>
       <button class="icon-button remove-segment ${segments.length === 1 ? "hidden" : ""}" type="button" title="Remove segment" data-remove-segment>×</button>
     </div>`).join("");
 }
@@ -201,7 +201,7 @@ function importState(event){const file=event.target.files?.[0];if(!file)return;c
 function normalizeTimestamp(value){return String(value).trim().replace(/\./g,":");}
 function parseTimestamp(value){const normalized=normalizeTimestamp(value);if(!normalized)return NaN;const parts=normalized.split(":").map(Number);if(parts.some((p)=>!Number.isFinite(p)||p<0))return NaN;return parts.reduce((t,p)=>t*60+p,0);}
 function parseOptionalTimestamp(value){return normalizeTimestamp(value)?parseTimestamp(value):null;}
-function formatInputTime(s){return String(s);} function formatDuration(total){const s=Math.max(0,Math.floor(total)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return h?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${m}:${String(sec).padStart(2,"0")}`;}
+function formatInputTime(s){return formatDuration(s);} function formatDuration(total){const s=Math.max(0,Math.floor(total)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return h?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${m}:${String(sec).padStart(2,"0")}`;}
 function parseTags(value){return [...new Set(String(value).split(",").map((t)=>t.trim().replace(/^#/,"").toLowerCase()).filter(Boolean))];}
 function buildWatchUrl(entry,segment){const url=new URL("https://www.youtube.com/watch");url.searchParams.set("v",entry.videoId);url.searchParams.set("t",`${segment.start}s`);return url.toString();}
 function thumbnailSrc(id){return `https://img.youtube.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`;}
