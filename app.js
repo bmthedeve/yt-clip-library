@@ -83,7 +83,8 @@ function renderSidebarState() {
   els.expandSidebarBtn.classList.toggle("hidden", !state.sidebarCollapsed);
 }
 function renderStats() {
-  const visible = state.activeGroupId ? state.entries.filter((e) => e.groupId === state.activeGroupId) : state.entries;
+  let visible = state.activeGroupId ? state.entries.filter((e) => e.groupId === state.activeGroupId) : state.entries;
+  if (state.filters.tag !== "all") visible = visible.filter((e) => entryMatchesTag(e, state.filters.tag));
   const segments = visible.flatMap((entry) => entry.segments);
   const seconds = segments.reduce((sum, s) => Number.isFinite(s.end) ? sum + Math.max(0, s.end - s.start) : sum, 0);
   els.statsRow.innerHTML = `
@@ -94,10 +95,11 @@ function renderStats() {
 }
 function renderContent() {
   const inGroup = Boolean(state.activeGroupId);
-  els.folderView.classList.toggle("hidden", inGroup);
-  els.groupBreadcrumb.classList.toggle("hidden", !inGroup);
+  const showingGlobalTagResults = !inGroup && state.filters.tag !== "all";
+  els.folderView.classList.toggle("hidden", inGroup || showingGlobalTagResults);
+  els.groupBreadcrumb.classList.toggle("hidden", !inGroup && !showingGlobalTagResults);
   els.listView.classList.add("hidden"); els.boardView.classList.add("hidden"); els.emptyState.classList.add("hidden");
-  if (!inGroup) {
+  if (!inGroup && !showingGlobalTagResults) {
     const counts = countVideosByGroup();
     els.folderView.innerHTML = state.groups.map((group) => `
       <button class="folder-card" type="button" data-open-group="${group.id}" style="--folder-color:${escapeAttr(safeColor(group.color))}">
@@ -107,15 +109,16 @@ function renderContent() {
       </button>`).join("");
     return;
   }
-  const group = getGroup(state.activeGroupId); els.activeGroupName.textContent = group.name;
+  els.activeGroupName.textContent = inGroup ? getGroup(state.activeGroupId).name : `#${state.filters.tag} in all groups`;
   const entries = getFilteredEntries();
   if (!entries.length) { els.emptyState.classList.remove("hidden"); return; }
   if (state.activeView === "list") { els.listView.classList.remove("hidden"); els.listView.innerHTML = entries.map(renderEntryRow).join(""); }
   else { els.boardView.classList.remove("hidden"); els.boardView.innerHTML = entries.map(renderEntryCard).join(""); }
 }
 function renderEntryRow(entry) {
+  const group = getGroup(entry.groupId);
   return `<article class="entry-row video-row">
-    <div class="video-summary"><img src="${escapeAttr(thumbnailSrc(entry.videoId))}" alt="" loading="lazy"><div><h3>${escapeHtml(entry.title)}</h3><p>${entry.segments.length} ${entry.segments.length === 1 ? "segment" : "segments"}</p></div></div>
+    <div class="video-summary"><img src="${escapeAttr(thumbnailSrc(entry.videoId))}" alt="" loading="lazy"><div><h3>${escapeHtml(entry.title)}</h3><p>${escapeHtml(group.name)} · ${entry.segments.length} ${entry.segments.length === 1 ? "segment" : "segments"}</p></div></div>
     <div class="segment-list">${entry.segments.map((segment) => renderSegmentItem(entry, segment)).join("")}</div>
     <div class="entry-tags">${renderTags(entry.tags)}</div>
     <div class="entry-actions"><button class="secondary-action" type="button" data-edit-entry="${entry.id}">Edit</button><button class="danger-action" type="button" data-delete-entry="${entry.id}">Delete</button></div>
@@ -138,11 +141,12 @@ function renderSegmentItem(entry, segment) {
 function renderTags(tags) { return tags.length ? tags.map((tag) => `<span class="tag">#${escapeHtml(tag)}</span>`).join("") : `<span class="meta-line">No tags</span>`; }
 function getFilteredEntries() {
   const query = state.filters.query.trim().toLowerCase();
-  return state.entries.filter((e) => e.groupId === state.activeGroupId)
-    .filter((e) => state.filters.tag === "all" || e.tags.includes(state.filters.tag) || getGroup(e.groupId).tags.includes(state.filters.tag))
+  return state.entries.filter((e) => !state.activeGroupId || e.groupId === state.activeGroupId)
+    .filter((e) => state.filters.tag === "all" || entryMatchesTag(e, state.filters.tag))
     .filter((e) => !query || [e.title, e.url, e.notes, ...e.tags, ...e.segments.map((s) => s.label)].join(" ").toLowerCase().includes(query))
     .sort((a, b) => b.createdAt - a.createdAt);
 }
+function entryMatchesTag(entry, tag) { return entry.tags.includes(tag) || getGroup(entry.groupId).tags.includes(tag); }
 function getAllTags() { return [...new Set([...state.groups.flatMap((g) => g.tags), ...state.entries.flatMap((e) => e.tags)])].sort((a,b) => a.localeCompare(b)); }
 function countVideosByGroup() { return state.entries.reduce((c,e) => ({...c, [e.groupId]:(c[e.groupId]||0)+1}), {}); }
 function countSegmentsForGroup(id) { return state.entries.filter((e) => e.groupId === id).reduce((n,e) => n + e.segments.length, 0); }
@@ -220,16 +224,16 @@ document.addEventListener("click",(event)=>{const target=event.target.closest("b
   if(target.id==="newEntryBtn")openEntryDialog(); if(target.id==="newGroupBtn")openGroupDialog();
   if(target.id==="collapseSidebarBtn"){state.sidebarCollapsed=true;render();} if(target.id==="expandSidebarBtn"){state.sidebarCollapsed=false;render();}
   if(target.id==="listViewBtn"){state.activeView="list";render();} if(target.id==="boardViewBtn"){state.activeView="board";render();}
-  if(target.id==="backToGroupsBtn"){state.activeGroupId=null;render();} if(target.dataset.openGroup){state.activeGroupId=target.dataset.openGroup;render();}
+  if(target.id==="backToGroupsBtn"){state.activeGroupId=null;state.filters.tag="all";render();} if(target.dataset.openGroup){state.activeGroupId=target.dataset.openGroup;render();}
   if(target.dataset.editEntry)openEntryDialog(state.entries.find((e)=>e.id===target.dataset.editEntry)); if(target.dataset.deleteEntry)deleteEntry(target.dataset.deleteEntry);
   if(target.dataset.playEntry)playEntry(target.dataset.playEntry,target.dataset.playSegment); if(target.dataset.editGroup)openGroupDialog(state.groups.find((g)=>g.id===target.dataset.editGroup));
-  if(target.dataset.filterTag){state.filters.tag=state.filters.tag===target.dataset.filterTag?"all":target.dataset.filterTag;render();} if(target.dataset.closeDialog)closeDialog(target.dataset.closeDialog);
+  if(target.dataset.filterTag){state.filters.tag=state.filters.tag===target.dataset.filterTag?"all":target.dataset.filterTag;state.activeGroupId=null;render();} if(target.dataset.closeDialog)closeDialog(target.dataset.closeDialog);
   if(target.id==="addSegmentBtn")addSegmentRow(); if(target.dataset.removeSegment!==undefined){const rows=readSegmentRows().filter((s)=>s.id!==target.closest(".segment-input-row").dataset.segmentId);renderSegmentInputs(rows);}
 });
 document.addEventListener("keydown",(event)=>{if(event.key!=="Escape")return;const dialog=[...document.querySelectorAll("dialog[open]")].at(-1);if(dialog){event.preventDefault();closeDialog(dialog.id);}},true);
 els.entryForm.addEventListener("submit",saveEntry); els.entryForm.addEventListener("change",(e)=>{if(e.target.name==="clipType")updateClipTypeUI();});
 els.segmentRows.addEventListener("input",(e)=>{if(e.target.matches(".segment-start, .segment-end")&&e.target.value.includes("."))e.target.value=e.target.value.replace(/\./g,":");});
 els.groupForm.addEventListener("submit",saveGroup); els.deleteGroupBtn.addEventListener("click",deleteGroup); els.exportBtn.addEventListener("click",exportState); els.importInput.addEventListener("change",importState);
-els.searchInput.addEventListener("input",(e)=>{state.filters.query=e.target.value;render();}); els.tagFilter.addEventListener("change",(e)=>{state.filters.tag=e.target.value;render();});
+els.searchInput.addEventListener("input",(e)=>{state.filters.query=e.target.value;render();}); els.tagFilter.addEventListener("change",(e)=>{state.filters.tag=e.target.value;if(e.target.value!=="all")state.activeGroupId=null;render();});
 document.querySelectorAll("dialog").forEach((dialog)=>{dialog.addEventListener("cancel",(e)=>{e.preventDefault();closeDialog(dialog.id);});dialog.addEventListener("click",(e)=>{if(e.target===dialog)closeDialog(dialog.id);});});
 render();
