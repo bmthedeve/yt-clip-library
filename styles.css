@@ -310,6 +310,51 @@ button.tag.is-selected:focus-visible {
   gap: 8px;
 }
 
+.backup-drop-hint {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  margin: 9px 2px 0;
+}
+
+.import-drop-overlay {
+  align-items: center;
+  background: rgba(15, 30, 28, 0.72);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  opacity: 0;
+  padding: 24px;
+  pointer-events: none;
+  position: fixed;
+  transition: opacity 120ms ease;
+  visibility: hidden;
+  z-index: 1000;
+}
+
+.import-drop-active .import-drop-overlay {
+  opacity: 1;
+  visibility: visible;
+}
+
+.import-drop-message {
+  align-items: center;
+  background: var(--surface);
+  border: 3px dashed var(--accent);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 480px;
+  padding: 42px 48px;
+  text-align: center;
+  width: 100%;
+}
+
+.import-drop-message strong { font-size: 1.15rem; }
+.import-drop-message span { color: var(--muted); font-size: 0.85rem; }
+
 .file-label {
   display: grid;
   place-items: center;

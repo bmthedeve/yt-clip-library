@@ -32,7 +32,7 @@ const els = {
   groupDialogTitle: $("#groupDialogTitle"), groupId: $("#groupId"), groupName: $("#groupName"), groupTags: $("#groupTags"),
   groupColor: $("#groupColor"), groupError: $("#groupError"), deleteGroupBtn: $("#deleteGroupBtn"),
   playerDialog: $("#playerDialog"), playerTitle: $("#playerTitle"), playerMeta: $("#playerMeta"),
-  playerFrame: $("#playerFrame"), openYouTubeLink: $("#openYouTubeLink"), exportBtn: $("#exportBtn"), importInput: $("#importInput")
+  playerFrame: $("#playerFrame"), openYouTubeLink: $("#openYouTubeLink"), exportBtn: $("#exportBtn"), importInput: $("#importInput"), importDropOverlay: $("#importDropOverlay")
 };
 
 function cloneDefaultState() { return JSON.parse(JSON.stringify(demoState)); }
@@ -215,7 +215,10 @@ function startSegmentGuard(segment){if(segmentGuard)clearInterval(segmentGuard);
 function resetSegmentToStart(pause){if(!segmentPlayer||!activeSegment)return;segmentPlayer.seekTo(activeSegment.start,true);if(pause&&typeof segmentPlayer.pauseVideo==="function")segmentPlayer.pauseVideo();}
 
 function exportState(){const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download="youtube-segment-library.json";link.click();URL.revokeObjectURL(url);}
-function importState(event){const file=event.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const imported=JSON.parse(String(reader.result));if(!Array.isArray(imported.groups)||!Array.isArray(imported.entries))throw new Error();localStorage.setItem(STORAGE_KEY,JSON.stringify(imported));state=loadState();render();}catch{alert("That file does not look like a Segment Library backup.");}};reader.readAsText(file);event.target.value="";}
+function importFile(file){if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const imported=JSON.parse(String(reader.result));if(!Array.isArray(imported.groups)||!Array.isArray(imported.entries))throw new Error();localStorage.setItem(STORAGE_KEY,JSON.stringify(imported));state=loadState();render();}catch{alert("That file does not look like a Segment Library backup.");}};reader.readAsText(file);}
+function importState(event){importFile(event.target.files?.[0]);event.target.value="";}
+function hasDraggedFiles(event){return [...(event.dataTransfer?.types||[])].includes("Files");}
+function setImportDropActive(active){document.body.classList.toggle("import-drop-active",active);els.importDropOverlay.setAttribute("aria-hidden",String(!active));}
 function normalizeTimestamp(value){return String(value).trim().replace(/\./g,":");}
 function parseTimestamp(value){const normalized=normalizeTimestamp(value);if(!normalized)return NaN;const parts=normalized.split(":").map(Number);if(parts.some((p)=>!Number.isFinite(p)||p<0))return NaN;return parts.reduce((t,p)=>t*60+p,0);}
 function parseOptionalTimestamp(value){return normalizeTimestamp(value)?parseTimestamp(value):null;}
@@ -245,6 +248,10 @@ document.addEventListener("keydown",(event)=>{if(event.key!=="Escape")return;con
 els.entryForm.addEventListener("submit",saveEntry); els.entryForm.addEventListener("change",(e)=>{if(e.target.name==="clipType")updateClipTypeUI();});
 els.segmentRows.addEventListener("input",(e)=>{if(e.target.matches(".segment-start, .segment-end")&&e.target.value.includes("."))e.target.value=e.target.value.replace(/\./g,":");});
 els.groupForm.addEventListener("submit",saveGroup); els.deleteGroupBtn.addEventListener("click",deleteGroup); els.exportBtn.addEventListener("click",exportState); els.importInput.addEventListener("change",importState);
+document.addEventListener("dragenter",(event)=>{if(hasDraggedFiles(event)){event.preventDefault();setImportDropActive(true);}});
+document.addEventListener("dragover",(event)=>{if(hasDraggedFiles(event)){event.preventDefault();event.dataTransfer.dropEffect="copy";setImportDropActive(true);}});
+document.addEventListener("dragleave",(event)=>{if(!event.relatedTarget)setImportDropActive(false);});
+document.addEventListener("drop",(event)=>{if(!hasDraggedFiles(event))return;event.preventDefault();setImportDropActive(false);const files=[...(event.dataTransfer?.files||[])];if(files.length!==1){alert("Drop one Segment Library JSON backup at a time.");return;}importFile(files[0]);});
 els.searchInput.addEventListener("input",(e)=>{state.filters.query=e.target.value;render();}); els.tagFilter.addEventListener("change",(e)=>{state.filters.tag=e.target.value;if(e.target.value!=="all")state.activeGroupId=null;render();});
 document.querySelectorAll("dialog").forEach((dialog)=>{dialog.addEventListener("cancel",(e)=>{e.preventDefault();closeDialog(dialog.id);});dialog.addEventListener("click",(e)=>{if(e.target===dialog)closeDialog(dialog.id);});});
 render();

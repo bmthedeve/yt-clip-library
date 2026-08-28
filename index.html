@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>YouTube Segment Library</title>
-    <link rel="stylesheet" href="styles.css?v=20260828-instant-unmute" />
+    <link rel="stylesheet" href="styles.css?v=20260828-drag-import" />
   </head>
   <body>
     <div class="app-shell">
@@ -47,6 +47,7 @@
               <input id="importInput" type="file" accept="application/json" />
             </label>
           </div>
+          <p class="backup-drop-hint">Or drop a JSON backup anywhere on this page.</p>
         </section>
       </aside>
 
@@ -89,6 +90,13 @@
           </div>
         </section>
       </main>
+    </div>
+
+    <div class="import-drop-overlay" id="importDropOverlay" aria-hidden="true">
+      <div class="import-drop-message">
+        <strong>Drop JSON backup to import</strong>
+        <span>Your current library will be replaced.</span>
+      </div>
     </div>
 
     <dialog id="entryDialog" class="dialog">
@@ -192,6 +200,6 @@
         <a class="secondary-action link-action" id="openYouTubeLink" href="#" target="_blank" rel="noopener noreferrer">Open on YouTube</a>
       </div>
     </dialog>
-    <script src="app.js?v=20260828-instant-unmute"></script>
+    <script src="app.js?v=20260828-drag-import"></script>
   </body>
 </html>

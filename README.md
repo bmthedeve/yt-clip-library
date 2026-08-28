@@ -6,6 +6,8 @@ Instead of downloading or trimming a video, the application stores its YouTube U
 
 [Open the live application](https://bmthedeve.github.io/yt-clip-library/)
 
+> **Tip:** Open the application in [Brave](https://brave.com/) for a more ad-free YouTube viewing experience. Playback behavior can still depend on YouTube and the browser's media settings.
+
 ## Features
 
 ### Organize videos into groups
@@ -62,7 +64,7 @@ Supported timestamp formats include:
 
 - Data is saved in the browser using `localStorage`.
 - Export the complete library as a JSON backup.
-- Import a previously exported JSON backup.
+- Import a previously exported JSON backup with the Import button, or drag and drop the JSON file anywhere onto the application.
 - Existing data from the earlier single-segment format is migrated automatically.
 
 ## Privacy and storage
