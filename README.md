@@ -46,6 +46,7 @@ Supported timestamp formats include:
 - Every saved segment has an adjacent Play button.
 - Bounded segments stop at their saved end timestamp.
 - Open-ended segments continue through the rest of the video.
+- The YouTube API is preloaded for more reliable playback, with an in-player start control when a browser blocks autoplay.
 - Press **Escape** to close the player dialog.
 - Use **Open on YouTube** when a video does not allow embedded playback.
 
