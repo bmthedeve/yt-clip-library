@@ -280,6 +280,14 @@ body.sidebar-collapsed .sidebar {
   padding: 4px 9px;
   color: #31403d;
   font-size: 12px;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+button.tag:not(.is-selected):hover,
+button.tag:not(.is-selected):focus-visible {
+  background: #dfeae7;
+  border-color: #b8cfca;
+  color: var(--accent-dark);
 }
 
 button.tag.is-selected {

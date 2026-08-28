@@ -138,7 +138,12 @@ function renderSegmentItem(entry, segment) {
   const range = Number.isFinite(segment.end) ? `${formatDuration(segment.start)} – ${formatDuration(segment.end)}` : `${formatDuration(segment.start)} – End of video`;
   return `<div class="segment-item"><div><strong>${escapeHtml(segment.label || "Untitled segment")}</strong><span>${range}</span></div><button class="segment-play" type="button" title="Play from this timestamp" data-play-entry="${entry.id}" data-play-segment="${segment.id}"><span class="play-icon"></span><span>Play</span></button></div>`;
 }
-function renderTags(tags) { return tags.length ? tags.map((tag) => `<span class="tag">#${escapeHtml(tag)}</span>`).join("") : `<span class="meta-line">No tags</span>`; }
+function renderTags(tags) {
+  return tags.length ? tags.map((tag) => {
+    const selected = state.filters.tag === tag;
+    return `<button class="tag ${selected ? "is-selected" : ""}" type="button" aria-pressed="${selected}" title="Show all videos tagged #${escapeAttr(tag)}" data-filter-tag="${escapeAttr(tag)}">#${escapeHtml(tag)}</button>`;
+  }).join("") : `<span class="meta-line">No tags</span>`;
+}
 function getFilteredEntries() {
   const query = state.filters.query.trim().toLowerCase();
   return state.entries.filter((e) => !state.activeGroupId || e.groupId === state.activeGroupId)

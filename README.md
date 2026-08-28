@@ -52,7 +52,7 @@ Supported timestamp formats include:
 ### Find saved moments quickly
 
 - Search titles, URLs, notes, tags, and segment labels.
-- Filter using the tag chips in the sidebar or the tag dropdown.
+- Filter using tag chips on video entries, tag chips in the sidebar, or the tag dropdown.
 - Selected sidebar tags are visibly highlighted.
 - Tag filters show matching videos across all groups, in both List and Board views.
 - Switch between a dense List view and a visual Board view.
