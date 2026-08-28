@@ -15,6 +15,7 @@ Instead of downloading or trimming a video, the application stores its YouTube U
 - The home screen presents groups as folders.
 - Open a folder to view its saved videos.
 - Create, edit, color-code, and delete groups.
+- Choose group colors visually or enter an exact six-digit HEX color.
 - Assign tags to groups and individual videos.
 - Use the collapsible sidebar for quick navigation.
 

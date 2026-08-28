@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>YouTube Segment Library</title>
-    <link rel="stylesheet" href="styles.css?v=20260828-drag-import" />
+    <link rel="stylesheet" href="styles.css?v=20260828-hex-color" />
   </head>
   <body>
     <div class="app-shell">
@@ -172,7 +172,10 @@
           </label>
           <label>
             Color
-            <input id="groupColor" type="color" value="#4f8f8a" />
+            <span class="color-input-row">
+              <input id="groupColor" type="color" value="#4f8f8a" aria-label="Choose group color visually" />
+              <input id="groupColorHex" type="text" value="#4F8F8A" maxlength="7" pattern="#[0-9A-Fa-f]{6}" spellcheck="false" aria-label="Group color HEX value" placeholder="#4F8F8A" />
+            </span>
           </label>
         </div>
         <p class="form-error" id="groupError"></p>
@@ -200,6 +203,6 @@
         <a class="secondary-action link-action" id="openYouTubeLink" href="#" target="_blank" rel="noopener noreferrer">Open on YouTube</a>
       </div>
     </dialog>
-    <script src="app.js?v=20260828-drag-import"></script>
+    <script src="app.js?v=20260828-hex-color"></script>
   </body>
 </html>

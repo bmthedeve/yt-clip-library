@@ -367,6 +367,25 @@ button.tag.is-selected:focus-visible {
   display: none;
 }
 
+.color-input-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.color-input-row input[type="color"] {
+  cursor: pointer;
+  height: 44px;
+  padding: 4px;
+  width: 64px;
+}
+
+.color-input-row input[type="text"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .workspace {
   min-width: 0;
   padding: 22px 26px 32px;

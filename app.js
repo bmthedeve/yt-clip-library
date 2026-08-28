@@ -30,7 +30,7 @@ const els = {
   entryError: $("#entryError"), clipTypeFieldset: $("#clipTypeFieldset"), segmentRows: $("#segmentRows"),
   addSegmentBtn: $("#addSegmentBtn"), groupDialog: $("#groupDialog"), groupForm: $("#groupForm"),
   groupDialogTitle: $("#groupDialogTitle"), groupId: $("#groupId"), groupName: $("#groupName"), groupTags: $("#groupTags"),
-  groupColor: $("#groupColor"), groupError: $("#groupError"), deleteGroupBtn: $("#deleteGroupBtn"),
+  groupColor: $("#groupColor"), groupColorHex: $("#groupColorHex"), groupError: $("#groupError"), deleteGroupBtn: $("#deleteGroupBtn"),
   playerDialog: $("#playerDialog"), playerTitle: $("#playerTitle"), playerMeta: $("#playerMeta"),
   playerFrame: $("#playerFrame"), openYouTubeLink: $("#openYouTubeLink"), exportBtn: $("#exportBtn"), importInput: $("#importInput"), importDropOverlay: $("#importDropOverlay")
 };
@@ -196,8 +196,8 @@ function saveEntry(event) {
 }
 function deleteEntry(id) { state.entries = state.entries.filter((e) => e.id !== id); render(); }
 
-function openGroupDialog(group=null) { els.groupForm.reset(); els.groupError.textContent=""; els.groupDialogTitle.textContent=group?"Edit group":"New group"; els.groupId.value=group?.id||""; els.groupName.value=group?.name||""; els.groupTags.value=group?.tags.join(", ")||""; els.groupColor.value=group?.color||"#4f8f8a"; els.deleteGroupBtn.classList.toggle("hidden",!group); els.groupDialog.showModal(); }
-function saveGroup(event) { event.preventDefault(); const name=els.groupName.value.trim(); if(!name){els.groupError.textContent="Group name is required.";return;} const id=els.groupId.value||createId("g"), existing=state.groups.find((g)=>g.id===id), next={id,name,tags:parseTags(els.groupTags.value),color:els.groupColor.value}; state.groups=existing?state.groups.map((g)=>g.id===id?next:g):[...state.groups,next]; els.groupDialog.close(); render(); }
+function openGroupDialog(group=null) { els.groupForm.reset(); els.groupError.textContent=""; els.groupDialogTitle.textContent=group?"Edit group":"New group"; els.groupId.value=group?.id||""; els.groupName.value=group?.name||""; els.groupTags.value=group?.tags.join(", ")||""; const color=safeColor(group?.color||"#4f8f8a"); els.groupColor.value=color; els.groupColorHex.value=color.toUpperCase(); els.deleteGroupBtn.classList.toggle("hidden",!group); els.groupDialog.showModal(); }
+function saveGroup(event) { event.preventDefault(); const name=els.groupName.value.trim(), color=normalizeHexColor(els.groupColorHex.value); if(!name){els.groupError.textContent="Group name is required.";return;} if(!color){els.groupError.textContent="Enter a valid six-digit HEX color, such as #4F8F8A.";return;} const id=els.groupId.value||createId("g"), existing=state.groups.find((g)=>g.id===id), next={id,name,tags:parseTags(els.groupTags.value),color}; state.groups=existing?state.groups.map((g)=>g.id===id?next:g):[...state.groups,next]; els.groupDialog.close(); render(); }
 function deleteGroup() { const id=els.groupId.value, group=getGroup(id); if(state.groups.length===1){els.groupError.textContent="Keep at least one group.";return;} if(!confirm(`Delete "${group.name}" and move its videos to another group?`))return; const fallback=state.groups.find((g)=>g.id!==id); state.entries=state.entries.map((e)=>e.groupId===id?{...e,groupId:fallback.id}:e); state.groups=state.groups.filter((g)=>g.id!==id); state.activeGroupId=null; els.groupDialog.close(); render(); }
 
 function playEntry(entryId, segmentId) { const entry=state.entries.find((e)=>e.id===entryId), segment=entry?.segments.find((s)=>s.id===segmentId); if(!entry||!segment)return; resetPlayer(); activeSegment={...segment,entryId}; els.playerTitle.textContent=segment.label?`${entry.title} — ${segment.label}`:entry.title; els.playerMeta.textContent=Number.isFinite(segment.end)?`${formatDuration(segment.start)} to ${formatDuration(segment.end)}`:`Starts at ${formatDuration(segment.start)} and plays to the end`; els.openYouTubeLink.href=buildWatchUrl(entry,segment); els.playerFrame.innerHTML='<div class="player-status-overlay" id="playerStatusOverlay"><span class="player-loader"></span><strong>Loading YouTube player…</strong></div><div id="ytSegmentPlayer"></div>'; els.playerDialog.showModal(); if(window.YT?.Player)mountSegmentPlayer(entry,segment);else{playbackStartTimer=setTimeout(showPlayerError,8000);loadYouTubeApi().then(()=>mountSegmentPlayer(entry,segment));} }
@@ -225,6 +225,7 @@ function parseOptionalTimestamp(value){return normalizeTimestamp(value)?parseTim
 function formatInputTime(value){if(value===null||value===undefined||String(value).trim()==="")return "";if(typeof value==="number")return Number.isFinite(value)?formatDuration(value):"";return normalizeTimestamp(value);}
 function formatDuration(total){if(!Number.isFinite(total))return "";const s=Math.max(0,Math.floor(total)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return h?`${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${m}:${String(sec).padStart(2,"0")}`;}
 function parseTags(value){return [...new Set(String(value).split(",").map((t)=>t.trim().replace(/^#/,"").toLowerCase()).filter(Boolean))];}
+function normalizeHexColor(value){const hex=String(value).trim().replace(/^#?/,"#");return /^#[0-9a-f]{6}$/i.test(hex)?hex.toLowerCase():null;}
 function buildWatchUrl(entry,segment){const url=new URL("https://www.youtube.com/watch");url.searchParams.set("v",entry.videoId);url.searchParams.set("t",`${segment.start}s`);return url.toString();}
 function thumbnailSrc(id){return `https://img.youtube.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`;}
 function extractYouTubeId(url){try{const p=new URL(url);if(p.hostname.includes("youtu.be"))return p.pathname.split("/").filter(Boolean)[0]||"";if(p.searchParams.get("v"))return p.searchParams.get("v");const parts=p.pathname.split("/").filter(Boolean),i=parts.findIndex((x)=>["embed","shorts","live"].includes(x));return i>=0?parts[i+1]||"":"";}catch{return "";}}
@@ -248,6 +249,8 @@ document.addEventListener("keydown",(event)=>{if(event.key!=="Escape")return;con
 els.entryForm.addEventListener("submit",saveEntry); els.entryForm.addEventListener("change",(e)=>{if(e.target.name==="clipType")updateClipTypeUI();});
 els.segmentRows.addEventListener("input",(e)=>{if(e.target.matches(".segment-start, .segment-end")&&e.target.value.includes("."))e.target.value=e.target.value.replace(/\./g,":");});
 els.groupForm.addEventListener("submit",saveGroup); els.deleteGroupBtn.addEventListener("click",deleteGroup); els.exportBtn.addEventListener("click",exportState); els.importInput.addEventListener("change",importState);
+els.groupColor.addEventListener("input",()=>{els.groupColorHex.value=els.groupColor.value.toUpperCase();els.groupError.textContent="";});
+els.groupColorHex.addEventListener("input",()=>{const color=normalizeHexColor(els.groupColorHex.value);if(color){els.groupColor.value=color;els.groupError.textContent="";}});
 document.addEventListener("dragenter",(event)=>{if(hasDraggedFiles(event)){event.preventDefault();setImportDropActive(true);}});
 document.addEventListener("dragover",(event)=>{if(hasDraggedFiles(event)){event.preventDefault();event.dataTransfer.dropEffect="copy";setImportDropActive(true);}});
 document.addEventListener("dragleave",(event)=>{if(!event.relatedTarget)setImportDropActive(false);});
