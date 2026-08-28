@@ -46,7 +46,7 @@ Supported timestamp formats include:
 - Every saved segment has an adjacent Play button.
 - Bounded segments stop at their saved end timestamp.
 - Open-ended segments continue through the rest of the video.
-- The YouTube API is preloaded for more reliable playback. If Chrome blocks playback with sound, the app starts the segment muted and offers a one-click **Play with sound** control.
+- The YouTube API is preloaded for more reliable playback. If Chrome blocks playback with sound, the app prepares the segment muted and offers a one-click **Play with sound** control without reloading the segment.
 - Press **Escape** to close the player dialog.
 - Use **Open on YouTube** when a video does not allow embedded playback.
 
