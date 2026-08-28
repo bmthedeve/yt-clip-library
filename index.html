@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>YouTube Segment Library</title>
-    <link rel="stylesheet" href="styles.css?v=20260828-hex-color" />
+    <link rel="stylesheet" href="styles.css?v=20260828-ui-refresh" />
   </head>
   <body>
     <div class="app-shell">
@@ -52,6 +52,14 @@
       </aside>
 
       <main class="workspace">
+        <section class="workspace-heading">
+          <div>
+            <span class="eyebrow">PERSONAL VIDEO INDEX</span>
+            <h2>Your saved moments</h2>
+            <p>Collect the parts worth returning to—not the whole watch history.</p>
+          </div>
+          <button class="primary-action compact" id="newEntryBtn" type="button"><span aria-hidden="true">＋</span> New video</button>
+        </section>
         <header class="topbar">
           <button class="icon-button hamburger-button sidebar-restore hidden" id="expandSidebarBtn" type="button" title="Show sidebar" aria-label="Show sidebar">
             <span></span>
@@ -68,7 +76,6 @@
               <button class="active" id="listViewBtn" type="button">List</button>
               <button id="boardViewBtn" type="button">Board</button>
             </div>
-            <button class="primary-action compact" id="newEntryBtn" type="button">+ New video</button>
           </div>
         </header>
 
@@ -203,6 +210,6 @@
         <a class="secondary-action link-action" id="openYouTubeLink" href="#" target="_blank" rel="noopener noreferrer">Open on YouTube</a>
       </div>
     </dialog>
-    <script src="app.js?v=20260828-hex-color"></script>
+    <script src="app.js?v=20260828-ui-refresh"></script>
   </body>
 </html>
